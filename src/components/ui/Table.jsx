@@ -1,5 +1,6 @@
 // src/components/ui/Table.jsx
 import React from 'react';
+import { cn } from '../../utils';
 
 export const Table = ({ children, className }) => {
   return (

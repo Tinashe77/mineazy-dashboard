@@ -1,5 +1,4 @@
-
-// src/components/layout/Layout.jsx
+// src/components/layout/Layout.jsx - Clean version
 import React, { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';

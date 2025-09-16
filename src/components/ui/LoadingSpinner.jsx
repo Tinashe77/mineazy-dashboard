@@ -1,5 +1,6 @@
 // src/components/ui/LoadingSpinner.jsx
 import React from 'react';
+import { cn } from '../../utils';
 
 export const LoadingSpinner = ({ size = 'md', className }) => {
   const sizes = {

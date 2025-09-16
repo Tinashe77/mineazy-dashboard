@@ -1,5 +1,7 @@
 // src/components/ui/Badge.jsx
 import React from 'react';
+import { cn } from '../../utils';
+
 export const Badge = ({ 
   children, 
   variant = 'default', 

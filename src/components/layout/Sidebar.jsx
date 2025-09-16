@@ -1,4 +1,4 @@
-// src/components/layout/Sidebar.jsx
+// src/components/layout/Sidebar.jsx - Clean version with role-based navigation
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 
 const navigation = [
-  { name: 'Dashboard', href: '/dashboard', icon: Home, roles: ['admin', 'shop_manager', 'super_admin'] },
+  { name: 'Dashboard', href: '/dashboard', icon: Home, roles: ['admin', 'shop_manager', 'super_admin', 'customer'] },
   { name: 'Products', href: '/products', icon: Package, roles: ['admin', 'shop_manager', 'super_admin'] },
   { name: 'Orders', href: '/orders', icon: ShoppingCart, roles: ['admin', 'shop_manager', 'super_admin'] },
   { name: 'Users', href: '/users', icon: Users, roles: ['admin', 'super_admin'] },
@@ -34,15 +34,18 @@ const navigation = [
 export const Sidebar = ({ isOpen, onClose }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, hasAnyRole } = useAuth();
+  const { user, userRole, hasAnyRole } = useAuth();
 
+  // Filter navigation based on user role
   const filteredNavigation = navigation.filter(item => 
     hasAnyRole(item.roles)
   );
 
   const handleNavigation = (href) => {
     navigate(href);
-    if (onClose) onClose(); // Close mobile sidebar
+    if (onClose) {
+      onClose(); // Close mobile sidebar
+    }
   };
 
   return (
