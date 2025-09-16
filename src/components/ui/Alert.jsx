@@ -1,4 +1,7 @@
 // src/components/ui/Alert.jsx
+import React from 'react';
+import { cn } from '../../utils';
+
 export const Alert = ({ 
   children, 
   variant = 'info', 
@@ -34,5 +37,3 @@ export const Alert = ({
     </div>
   );
 };
-
-export { Button };

@@ -1,4 +1,6 @@
 // src/components/ui/Table.jsx
+import React from 'react';
+
 export const Table = ({ children, className }) => {
   return (
     <div className="overflow-x-auto">

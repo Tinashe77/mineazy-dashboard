@@ -1,4 +1,5 @@
 // src/components/ui/Badge.jsx
+import React from 'react';
 export const Badge = ({ 
   children, 
   variant = 'default', 

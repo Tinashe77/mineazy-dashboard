@@ -2,7 +2,7 @@
 import React from 'react';
 import { cn } from '../../utils';
 
-const Button = React.forwardRef(({ 
+export const Button = React.forwardRef(({ 
   className, 
   variant = 'primary', 
   size = 'md', 

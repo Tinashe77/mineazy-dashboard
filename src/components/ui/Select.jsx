@@ -1,4 +1,6 @@
 // src/components/ui/Select.jsx
+import React from 'react';
+
 export const Select = React.forwardRef(({ 
   className, 
   children,

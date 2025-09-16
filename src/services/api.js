@@ -1,5 +1,7 @@
 // src/services/api.js
-const API_BASE_URL = 'https://minings.onrender.com/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://minings.onrender.com/api/v1';
+
+
 
 class MineazyAPI {
   constructor() {

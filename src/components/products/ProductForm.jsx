@@ -1,4 +1,4 @@
-/ src/components/products/ProductForm.jsx
+// src/components/products/ProductForm.jsx
 import React, { useState, useEffect } from 'react';
 import { Button, Input, Select, Textarea, Modal } from '../ui';
 import { PRODUCT_CATEGORIES } from '../../utils';

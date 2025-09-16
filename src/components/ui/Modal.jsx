@@ -1,4 +1,6 @@
 // src/components/ui/Modal.jsx
+import React from 'react';
+
 export const Modal = ({ isOpen, onClose, title, children, size = 'md' }) => {
   if (!isOpen) return null;
 
