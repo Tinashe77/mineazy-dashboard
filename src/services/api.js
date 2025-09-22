@@ -278,14 +278,28 @@ class MineazyAPI {
     });
   }
 
-  async updateProduct(id, data) {
-    if (!id) throw new APIError('Product ID is required', 400, null);
-    const body = data instanceof FormData ? data : JSON.stringify(data);
-    return this.request(`/products/${id}`, {
-      method: 'PUT',
-      body,
+async updateProduct(id, data) {
+  if (!id) throw new APIError('Product ID is required', 400, null);
+  
+  // If data is FormData (has images), use it directly
+  // Otherwise, create FormData from the object
+  let body;
+  if (data instanceof FormData) {
+    body = data;
+  } else {
+    body = new FormData();
+    Object.keys(data).forEach(key => {
+      if (data[key] !== undefined && data[key] !== null) {
+        body.append(key, data[key]);
+      }
     });
   }
+  
+  return this.request(`/products/${id}`, {
+    method: 'PUT',
+    body,
+  });
+}
 
   async deleteProduct(id) {
     if (!id) throw new APIError('Product ID is required', 400, null);
@@ -410,6 +424,43 @@ class MineazyAPI {
   async getApiInfo() {
     return this.request('/info');
   }
+// Add these methods to src/services/api.js
+
+// Categories endpoints
+async getCategories(params = {}) {
+  const queryString = new URLSearchParams(params).toString();
+  const endpoint = queryString ? `/categories?${queryString}` : '/categories';
+  return this.request(endpoint);
+}
+
+async getCategoryById(id) {
+  if (!id) throw new APIError('Category ID is required', 400, null);
+  return this.request(`/categories/${id}`);
+}
+
+async createCategory(data) {
+  if (!data || !data.name) {
+    throw new APIError('Category name is required', 400, null);
+  }
+  return this.request('/categories', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+async updateCategory(id, data) {
+  if (!id) throw new APIError('Category ID is required', 400, null);
+  return this.request(`/categories/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+async deleteCategory(id) {
+  if (!id) throw new APIError('Category ID is required', 400, null);
+  return this.request(`/categories/${id}`, { method: 'DELETE' });
+}
+
 }
 
 // Create singleton instance

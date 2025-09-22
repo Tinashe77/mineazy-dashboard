@@ -1,9 +1,10 @@
-// src/pages/ProductsPage.jsx - Fixed version with better auth handling
+// Update src/pages/ProductsPage.jsx - add bulk import functionality
 import React, { useState, useEffect } from 'react';
 import { PageHeader } from '../components/layout';
 import { ProductForm, ProductList, ProductFilters } from '../components/products';
+import { ProductBulkImport } from '../components/products/ProductBulkImport';
 import { Button, Alert } from '../components/ui';
-import { Plus } from 'lucide-react';
+import { Plus, Upload } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
 
@@ -12,7 +13,9 @@ export const ProductsPage = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
   const [showProductForm, setShowProductForm] = useState(false);
+  const [showBulkImport, setShowBulkImport] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [filters, setFilters] = useState({
     search: '',
@@ -43,9 +46,7 @@ export const ProductsPage = () => {
       };
 
       const response = await api.getProducts(params);
-      console.log('Products API response:', response);
       
-      // Handle different response structures
       let productsData = [];
       if (Array.isArray(response)) {
         productsData = response;
@@ -59,7 +60,7 @@ export const ProductsPage = () => {
       setPagination(prev => ({
         ...prev,
         totalPages: response.totalPages || 1,
-        totalItems: response.total || 0,
+        totalItems: response.total || productsData.length,
       }));
     } catch (error) {
       console.error('Failed to load products:', error);
@@ -69,74 +70,27 @@ export const ProductsPage = () => {
     }
   };
 
-  const handleCreateProduct = async (formData) => {
+  const handleSaveProduct = async (formData, productId) => {
     try {
       setError(null);
       
-      // Debug: Check if we're authenticated
-      if (!isAuthenticated) {
-        throw new Error('You must be logged in to create products');
-      }
-      
-      // Debug: Check user role
-      if (!['admin', 'shop_manager', 'super_admin'].includes(userRole)) {
-        throw new Error(`Access denied. Your role (${userRole}) doesn't have permission to create products`);
-      }
-      
-      // Debug: Check if cookie exists
-      if (!api.isAuthenticated()) {
-        throw new Error('Authentication cookie not found. Please login again.');
-      }
-      
-      console.log('Creating product with auth check passed:', {
-        isAuthenticated,
-        userRole,
-        hasCookie: api.isAuthenticated(),
-        user: user?.name
-      });
-      
-      const response = await api.createProduct(formData);
-      console.log('Product creation response:', response);
-      
-      await loadProducts();
-      setShowProductForm(false);
-      
-      // Show success message
-      setError(null);
-      
-    } catch (error) {
-      console.error('Product creation error:', error);
-      
-      // Handle specific error cases
-      if (error.status === 401) {
-        setError('Authentication failed. Please login again.');
-        // Could trigger re-authentication here
-      } else if (error.status === 403) {
-        setError('Access denied. You don\'t have permission to create products.');
+      if (productId) {
+        await api.updateProduct(productId, formData);
+        setSuccess('Product updated successfully!');
       } else {
-        setError(`Failed to create product: ${error.message}`);
+        await api.createProduct(formData);
+        setSuccess('Product created successfully!');
       }
       
-      throw error; // Re-throw so form can handle it
-    }
-  };
-
-  const handleUpdateProduct = async (formData, productId) => {
-    try {
-      setError(null);
-      
-      if (!isAuthenticated || !api.isAuthenticated()) {
-        throw new Error('Authentication required. Please login again.');
-      }
-      
-      await api.updateProduct(productId, formData);
       await loadProducts();
       setShowProductForm(false);
       setSelectedProduct(null);
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccess(null), 3000);
     } catch (error) {
-      console.error('Product update error:', error);
-      setError(`Failed to update product: ${error.message}`);
-      throw error;
+      console.error('Product save error:', error);
+      throw error; // Let the form handle the error
     }
   };
 
@@ -147,14 +101,10 @@ export const ProductsPage = () => {
 
     try {
       setError(null);
-      
-      if (!isAuthenticated || !api.isAuthenticated()) {
-        setError('Authentication required. Please login again.');
-        return;
-      }
-      
       await api.deleteProduct(productId);
+      setSuccess('Product deleted successfully!');
       await loadProducts();
+      setTimeout(() => setSuccess(null), 3000);
     } catch (error) {
       console.error('Product deletion error:', error);
       setError(`Failed to delete product: ${error.message}`);
@@ -166,15 +116,13 @@ export const ProductsPage = () => {
     setShowProductForm(true);
   };
 
-  const handleSaveProduct = async (formData, productId) => {
-    if (productId) {
-      await handleUpdateProduct(formData, productId);
-    } else {
-      await handleCreateProduct(formData);
-    }
+  const handleImportSuccess = () => {
+    setShowBulkImport(false);
+    setSuccess('Products imported successfully!');
+    loadProducts();
+    setTimeout(() => setSuccess(null), 3000);
   };
 
-  // Check if user has permission to manage products
   const canManageProducts = ['admin', 'shop_manager', 'super_admin'].includes(userRole);
 
   return (
@@ -184,15 +132,24 @@ export const ProductsPage = () => {
         subtitle="Manage your mining equipment inventory"
       >
         {canManageProducts && (
-          <Button
-            onClick={() => {
-              setSelectedProduct(null);
-              setShowProductForm(true);
-            }}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Product
-          </Button>
+          <div className="flex space-x-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowBulkImport(true)}
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              Bulk Import
+            </Button>
+            <Button
+              onClick={() => {
+                setSelectedProduct(null);
+                setShowProductForm(true);
+              }}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Product
+            </Button>
+          </div>
         )}
       </PageHeader>
 
@@ -202,13 +159,11 @@ export const ProductsPage = () => {
         </Alert>
       )}
 
-      {/* Debug Info - Remove in production */}
-      <div className="bg-gray-100 p-3 rounded text-xs text-gray-600">
-        <strong>Debug:</strong> Auth: {isAuthenticated ? 'Yes' : 'No'} | 
-        Role: {userRole || 'None'} | 
-        Cookie: {api.isAuthenticated() ? 'Present' : 'Missing'} | 
-        User: {user?.name || 'None'}
-      </div>
+      {success && (
+        <Alert variant="success" onClose={() => setSuccess(null)}>
+          {success}
+        </Alert>
+      )}
 
       <ProductFilters
         filters={filters}
@@ -224,16 +179,47 @@ export const ProductsPage = () => {
         onView={(product) => console.log('View product:', product)}
       />
 
+      {/* Pagination */}
+      {pagination.totalPages > 1 && (
+        <div className="flex justify-center space-x-2">
+          <Button
+            variant="outline"
+            disabled={pagination.currentPage === 1}
+            onClick={() => setPagination(prev => ({ ...prev, currentPage: prev.currentPage - 1 }))}
+          >
+            Previous
+          </Button>
+          <span className="py-2 px-4">
+            Page {pagination.currentPage} of {pagination.totalPages}
+          </span>
+          <Button
+            variant="outline"
+            disabled={pagination.currentPage === pagination.totalPages}
+            onClick={() => setPagination(prev => ({ ...prev, currentPage: prev.currentPage + 1 }))}
+          >
+            Next
+          </Button>
+        </div>
+      )}
+
       {canManageProducts && (
-        <ProductForm
-          isOpen={showProductForm}
-          onClose={() => {
-            setShowProductForm(false);
-            setSelectedProduct(null);
-          }}
-          product={selectedProduct}
-          onSave={handleSaveProduct}
-        />
+        <>
+          <ProductForm
+            isOpen={showProductForm}
+            onClose={() => {
+              setShowProductForm(false);
+              setSelectedProduct(null);
+            }}
+            product={selectedProduct}
+            onSave={handleSaveProduct}
+          />
+
+         <ProductBulkImport
+            isOpen={showBulkImport}
+            onClose={() => setShowBulkImport(false)}
+            onImportSuccess={handleImportSuccess}
+          />
+        </>
       )}
     </div>
   );

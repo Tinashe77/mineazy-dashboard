@@ -1,8 +1,8 @@
 // src/components/products/ProductForm.jsx
 import React, { useState, useEffect } from 'react';
 import { Button, Input, Select, Textarea, Modal } from '../ui';
-import { PRODUCT_CATEGORIES } from '../../utils';
-import { Upload, X, Plus } from 'lucide-react';
+import { Upload, X } from 'lucide-react';
+import api from '../../services/api';
 
 export const ProductForm = ({ 
   isOpen, 
@@ -13,48 +13,88 @@ export const ProductForm = ({
 }) => {
   const [formData, setFormData] = useState({
     name: '',
-    description: '',
-    price: '',
+    desc: '', // Changed from description to desc
+    regular_price: '',
+    sale_price: '',
+    usd_price: '',
+    zwg_price: '',
     category: '',
     subcategory: '',
+    branch: '',
     stock: '',
     sku: '',
     tags: '',
-    active: true,
+    isActive: true,
   });
   
   const [selectedFiles, setSelectedFiles] = useState([]);
+  const [imageUrls, setImageUrls] = useState('');
   const [errors, setErrors] = useState({});
+  const [categories, setCategories] = useState([]);
+  const [branches, setBranches] = useState([]);
+
+  useEffect(() => {
+    loadCategories();
+    loadBranches();
+  }, []);
 
   useEffect(() => {
     if (product) {
       setFormData({
         name: product.name || '',
-        description: product.description || '',
-        price: product.price || product.prices?.USD || '',
-        category: product.category || '',
+        desc: product.desc || product.description || '',
+        regular_price: product.price?.regular_price || product.regular_price || product.price || '',
+        sale_price: product.price?.sale_price || product.sale_price || '',
+        usd_price: product.price?.usd_price || product.usd_price || product.price || '',
+        zwg_price: product.price?.zwg_price || product.zwg_price || '',
+        category: product.category?._id || product.category || '',
         subcategory: product.subcategory || '',
+        branch: product.branch?._id || product.branch || '',
         stock: product.stock?.quantity || product.stock || '',
         sku: product.sku || '',
         tags: Array.isArray(product.tags) ? product.tags.join(', ') : product.tags || '',
-        active: product.active !== false,
+        isActive: product.isActive !== false,
       });
     } else {
+      // Reset form for new product
       setFormData({
         name: '',
-        description: '',
-        price: '',
+        desc: '',
+        regular_price: '',
+        sale_price: '',
+        usd_price: '',
+        zwg_price: '',
         category: '',
         subcategory: '',
+        branch: '',
         stock: '',
         sku: '',
         tags: '',
-        active: true,
+        isActive: true,
       });
     }
     setSelectedFiles([]);
+    setImageUrls('');
     setErrors({});
   }, [product, isOpen]);
+
+  const loadCategories = async () => {
+    try {
+      const response = await api.getCategories();
+      setCategories(response.data || response || []);
+    } catch (error) {
+      console.error('Failed to load categories:', error);
+    }
+  };
+
+  const loadBranches = async () => {
+    try {
+      const response = await api.getBranches();
+      setBranches(response.data || response || []);
+    } catch (error) {
+      console.error('Failed to load branches:', error);
+    }
+  };
 
   const validateForm = () => {
     const newErrors = {};
@@ -67,8 +107,8 @@ export const ProductForm = ({
       newErrors.sku = 'SKU is required';
     }
 
-    if (!formData.price || formData.price <= 0) {
-      newErrors.price = 'Valid price is required';
+    if (!formData.regular_price || formData.regular_price <= 0) {
+      newErrors.regular_price = 'Valid price is required';
     }
 
     if (!formData.category) {
@@ -93,29 +133,62 @@ export const ProductForm = ({
     try {
       const formDataToSend = new FormData();
       
-      // Add text fields
-      Object.keys(formData).forEach(key => {
-        if (formData[key] !== '') {
-          formDataToSend.append(key, formData[key]);
-        }
-      });
+      // Add all fields with correct names as per API
+      formDataToSend.append('name', formData.name);
+      formDataToSend.append('desc', formData.desc); // Using desc instead of description
+      formDataToSend.append('regular_price', formData.regular_price);
+      
+      if (formData.sale_price) {
+        formDataToSend.append('sale_price', formData.sale_price);
+      }
+      
+      // Add both USD and ZWG prices
+      formDataToSend.append('usd_price', formData.usd_price || formData.regular_price);
+      formDataToSend.append('zwg_price', formData.zwg_price || (formData.regular_price * 50)); // Default conversion
+      
+      formDataToSend.append('category', formData.category);
+      formDataToSend.append('subcategory', formData.subcategory);
+      
+      if (formData.branch) {
+        formDataToSend.append('branch', formData.branch);
+      }
+      
+      formDataToSend.append('stock', formData.stock);
+      formDataToSend.append('sku', formData.sku);
+      formDataToSend.append('tags', formData.tags);
+      formDataToSend.append('isActive', formData.isActive.toString());
 
       // Add image files
       selectedFiles.forEach(file => {
         formDataToSend.append('images', file);
       });
 
+      // Add image URLs if provided
+      if (imageUrls.trim()) {
+        formDataToSend.append('imageUrls', imageUrls);
+      }
+
+      // Debug: Log what we're sending
+      console.log('Sending product data:');
+      for (let [key, value] of formDataToSend.entries()) {
+        if (value instanceof File) {
+          console.log(`${key}: [File] ${value.name}`);
+        } else {
+          console.log(`${key}: ${value}`);
+        }
+      }
+
       await onSave(formDataToSend, product?.id || product?._id);
       onClose();
     } catch (error) {
       console.error('Error saving product:', error);
+      setErrors({ submit: error.message });
     }
   };
 
   const handleFileChange = (e) => {
     const files = Array.from(e.target.files);
     
-    // Validate files
     const validFiles = files.filter(file => {
       const isValidType = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(file.type);
       const isValidSize = file.size <= 5 * 1024 * 1024; // 5MB
@@ -126,7 +199,7 @@ export const ProductForm = ({
       alert('Some files were rejected. Please ensure all files are images under 5MB.');
     }
 
-    setSelectedFiles(prev => [...prev, ...validFiles].slice(0, 10)); // Max 10 files
+    setSelectedFiles(prev => [...prev, ...validFiles].slice(0, 10));
   };
 
   const removeFile = (index) => {
@@ -135,6 +208,19 @@ export const ProductForm = ({
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    
+    // Auto-calculate ZWG price when USD price changes
+    if (field === 'usd_price' || field === 'regular_price') {
+      const usdValue = parseFloat(value) || 0;
+      setFormData(prev => ({ 
+        ...prev, 
+        [field]: value,
+        zwg_price: (usdValue * 50).toString() // Auto-calculate with 1:50 rate
+      }));
+    } else {
+      setFormData(prev => ({ ...prev, [field]: value }));
+    }
+    
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: undefined }));
     }
@@ -145,9 +231,16 @@ export const ProductForm = ({
       isOpen={isOpen} 
       onClose={onClose} 
       title={product ? 'Edit Product' : 'Add New Product'}
-      size="lg"
+      size="xl"
     >
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-6 max-h-[70vh] overflow-y-auto px-1">
+        {errors.submit && (
+          <div className="bg-red-50 text-red-700 p-3 rounded">
+            {errors.submit}
+          </div>
+        )}
+
+        {/* Basic Information */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input
             label="Product Name"
@@ -162,7 +255,7 @@ export const ProductForm = ({
             label="SKU"
             required
             value={formData.sku}
-            onChange={(e) => handleInputChange('sku', e.target.value)}
+            onChange={(e) => handleInputChange('sku', e.target.value.toUpperCase())}
             error={errors.sku}
             placeholder="Enter product SKU"
           />
@@ -171,23 +264,54 @@ export const ProductForm = ({
         <Textarea
           label="Description"
           rows={3}
-          value={formData.description}
-          onChange={(e) => handleInputChange('description', e.target.value)}
+          value={formData.desc}
+          onChange={(e) => handleInputChange('desc', e.target.value)}
           placeholder="Enter product description"
         />
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Pricing */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Input
-            label="Price (USD)"
+            label="Regular Price (USD)"
             type="number"
             step="0.01"
             required
-            value={formData.price}
-            onChange={(e) => handleInputChange('price', e.target.value)}
-            error={errors.price}
+            value={formData.regular_price}
+            onChange={(e) => handleInputChange('regular_price', e.target.value)}
+            error={errors.regular_price}
             placeholder="0.00"
           />
 
+          <Input
+            label="Sale Price (USD)"
+            type="number"
+            step="0.01"
+            value={formData.sale_price}
+            onChange={(e) => handleInputChange('sale_price', e.target.value)}
+            placeholder="0.00"
+          />
+
+          <Input
+            label="USD Price"
+            type="number"
+            step="0.01"
+            value={formData.usd_price}
+            onChange={(e) => handleInputChange('usd_price', e.target.value)}
+            placeholder="0.00"
+          />
+
+          <Input
+            label="ZWG Price"
+            type="number"
+            step="0.01"
+            value={formData.zwg_price}
+            onChange={(e) => handleInputChange('zwg_price', e.target.value)}
+            placeholder="0.00"
+          />
+        </div>
+
+        {/* Category and Stock */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Select
             label="Category"
             required
@@ -196,8 +320,30 @@ export const ProductForm = ({
             error={errors.category}
           >
             <option value="">Select Category</option>
-            {PRODUCT_CATEGORIES.map(category => (
-              <option key={category} value={category}>{category}</option>
+            {categories.map(category => (
+              <option key={category._id || category.id} value={category._id || category.id}>
+                {category.name}
+              </option>
+            ))}
+          </Select>
+
+          <Input
+            label="Subcategory"
+            value={formData.subcategory}
+            onChange={(e) => handleInputChange('subcategory', e.target.value)}
+            placeholder="e.g., Excavators"
+          />
+
+          <Select
+            label="Branch"
+            value={formData.branch}
+            onChange={(e) => handleInputChange('branch', e.target.value)}
+          >
+            <option value="">All Branches</option>
+            {branches.map(branch => (
+              <option key={branch._id || branch.id} value={branch._id || branch.id}>
+                {branch.name}
+              </option>
             ))}
           </Select>
 
@@ -213,20 +359,13 @@ export const ProductForm = ({
         </div>
 
         <Input
-          label="Subcategory"
-          value={formData.subcategory}
-          onChange={(e) => handleInputChange('subcategory', e.target.value)}
-          placeholder="e.g., Excavators, Dump Trucks"
-        />
-
-        <Input
           label="Tags (comma separated)"
           value={formData.tags}
           onChange={(e) => handleInputChange('tags', e.target.value)}
           placeholder="mining, equipment, heavy-duty"
         />
 
-        {/* File Upload Section */}
+        {/* Image Upload Section */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Product Images
@@ -255,6 +394,16 @@ export const ProductForm = ({
                 PNG, JPG, GIF, WebP up to 5MB each (max 10 images)
               </p>
             </div>
+          </div>
+
+          {/* Image URLs Input */}
+          <div className="mt-3">
+            <Input
+              label="Or enter image URLs (comma separated)"
+              value={imageUrls}
+              onChange={(e) => setImageUrls(e.target.value)}
+              placeholder="https://example.com/image1.jpg, https://example.com/image2.jpg"
+            />
           </div>
 
           {/* Selected Files Preview */}
@@ -287,12 +436,13 @@ export const ProductForm = ({
           )}
         </div>
 
+        {/* Active Status */}
         <div className="flex items-center">
           <input
             type="checkbox"
             id="active"
-            checked={formData.active}
-            onChange={(e) => handleInputChange('active', e.target.checked)}
+            checked={formData.isActive}
+            onChange={(e) => handleInputChange('isActive', e.target.checked)}
             className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
           />
           <label htmlFor="active" className="ml-2 block text-sm text-gray-900">
