@@ -1,5 +1,6 @@
-// src/components/ui/Textarea.jsx
+// src/components/ui/Textarea.jsx - Fixed version
 import React from 'react';
+import { cn } from '../../utils';
 
 export const Textarea = React.forwardRef(({ 
   className, 

@@ -31,6 +31,7 @@ import {
   Users
 } from 'lucide-react';
 import api, { APIError } from '../services/api';
+import { Package } from 'lucide-react';
 
 export const BranchesPage = () => {
   const [branches, setBranches] = useState([]);

@@ -1,5 +1,6 @@
-// src/components/ui/Select.jsx
+// src/components/ui/Select.jsx - Fixed version
 import React from 'react';
+import { cn } from '../../utils';
 
 export const Select = React.forwardRef(({ 
   className, 

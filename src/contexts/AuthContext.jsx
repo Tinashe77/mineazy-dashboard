@@ -1,4 +1,4 @@
-// src/contexts/AuthContext.jsx - Fixed for cookie-based authentication
+// src/contexts/AuthContext.jsx - Fixed version
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import api from '../services/api';
 
@@ -19,7 +19,7 @@ const authReducer = (state, action) => {
         loading: false,
         isAuthenticated: true,
         user: action.payload.user,
-        sessionId: action.payload.sessionId, // Store session ID from response
+        sessionId: action.payload.sessionId,
         error: null,
       };
     case 'LOGIN_FAILURE':
@@ -38,11 +38,13 @@ const authReducer = (state, action) => {
         user: null,
         sessionId: null,
         error: null,
+        loading: false, // Add this
       };
     case 'UPDATE_USER':
       return {
         ...state,
         user: action.payload,
+        isAuthenticated: true, // Ensure this is set
       };
     case 'CLEAR_ERROR':
       return {
@@ -54,58 +56,68 @@ const authReducer = (state, action) => {
         ...state,
         loading: action.payload,
       };
+    case 'INIT_AUTH':
+      return {
+        ...state,
+        isAuthenticated: action.payload.isAuthenticated,
+        user: action.payload.user,
+        loading: false,
+      };
     default:
       return state;
   }
 };
 
 const initialState = {
-  isAuthenticated: api.isAuthenticated(), // Check cookie on init
+  isAuthenticated: false, // Start as false, will be set by init
   user: null,
   sessionId: null,
-  loading: false,
+  loading: true, // Start with loading true
   error: null,
 };
 
 export const AuthProvider = ({ children }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
 
-  // Load user profile on mount if authenticated
+  // Initialize auth state on mount
   useEffect(() => {
-    if (api.isAuthenticated() && !state.user) {
-      loadUserProfile();
-    }
+    initializeAuth();
   }, []);
 
-  const loadUserProfile = async () => {
+  const initializeAuth = async () => {
     try {
-      dispatch({ type: 'SET_LOADING', payload: true });
-      const response = await api.getProfile();
-      
-      // Handle the response structure from your API
-      const userData = response.data?.user || response.user || response.data || response;
-      
-      dispatch({
-        type: 'UPDATE_USER',
-        payload: userData,
-      });
-      
-      // If we successfully got user data, we're authenticated
-      if (userData) {
+      if (api.isAuthenticated()) {
+        // If cookie exists, try to load profile
+        const response = await api.getProfile();
+        const userData = response.data?.user || response.user || response.data || response;
+        
         dispatch({
-          type: 'LOGIN_SUCCESS',
+          type: 'INIT_AUTH',
           payload: {
+            isAuthenticated: true,
             user: userData,
-            sessionId: response.data?.sessionId || null
+          }
+        });
+      } else {
+        // No cookie, user not authenticated
+        dispatch({
+          type: 'INIT_AUTH',
+          payload: {
+            isAuthenticated: false,
+            user: null,
           }
         });
       }
     } catch (error) {
-      console.error('Failed to load user profile:', error);
-      // If profile loading fails, logout
-      logout();
-    } finally {
-      dispatch({ type: 'SET_LOADING', payload: false });
+      console.error('Failed to initialize auth:', error);
+      // If profile loading fails, clear auth state
+      dispatch({
+        type: 'INIT_AUTH',
+        payload: {
+          isAuthenticated: false,
+          user: null,
+        }
+      });
     }
   };
 
@@ -113,14 +125,27 @@ export const AuthProvider = ({ children }) => {
     dispatch({ type: 'LOGIN_START' });
     
     try {
+      console.log('Starting login process...');
       const response = await api.login(email, password);
+      console.log('Login response received:', response);
       
-      // Handle your API's response structure
       const userData = response.data?.user || response.user;
       const sessionId = response.data?.sessionId || response.sessionId;
       
       if (!userData) {
         throw new Error('No user data received from login');
+      }
+      
+      // Check if cookie was set
+      console.log('Checking cookie after login:', {
+        hasCookie: api.isAuthenticated(),
+        cookieValue: api.getAuthToken()
+      });
+      
+      // If no cookie was set, there might be a CORS issue
+      if (!api.isAuthenticated()) {
+        console.warn('No authentication cookie found after login. This might be a CORS issue.');
+        // We'll still proceed with the login since we have the user data
       }
       
       dispatch({
@@ -133,6 +158,7 @@ export const AuthProvider = ({ children }) => {
       
       return response;
     } catch (error) {
+      console.error('Login error:', error);
       dispatch({
         type: 'LOGIN_FAILURE',
         payload: error.message || 'Login failed',
@@ -175,14 +201,11 @@ export const AuthProvider = ({ children }) => {
   const getUserRole = () => {
     if (!state.user) return null;
     
-    // Handle different possible role structures
     if (state.user.role) return state.user.role;
     if (state.user.roles && Array.isArray(state.user.roles) && state.user.roles.length > 0) {
-      // If roles is an array of objects with 'name' property
       if (typeof state.user.roles[0] === 'object' && state.user.roles[0].name) {
         return state.user.roles[0].name;
       }
-      // If roles is an array of strings
       return state.user.roles[0];
     }
     return null;
@@ -194,7 +217,7 @@ export const AuthProvider = ({ children }) => {
     logout,
     updateProfile,
     clearError,
-    loadUserProfile,
+    initializeAuth,
     // Role-based helper functions
     hasRole: (role) => getUserRole() === role,
     hasAnyRole: (roles) => {
@@ -208,7 +231,6 @@ export const AuthProvider = ({ children }) => {
     isShopManager: () => getUserRole() === 'shop_manager',
     isCustomer: () => getUserRole() === 'customer',
     isSuperAdmin: () => getUserRole() === 'super_admin',
-    // Get the current user role
     userRole: getUserRole(),
   };
 

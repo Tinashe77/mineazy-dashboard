@@ -1,4 +1,5 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://minings.onrender.com/api/v1';
+// src/services/api.js - Pure cookie-based authentication as per your API docs
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
 class APIError extends Error {
   constructor(message, status, data) {
@@ -11,40 +12,42 @@ class APIError extends Error {
 
 class MineazyAPI {
   constructor() {
-    // Since tokens are in HTTP-only cookies, we don't store them in localStorage
     this.baseURL = API_BASE_URL;
-    this.requestInterceptors = [];
-    this.responseInterceptors = [];
   }
 
-  // Check if user is authenticated by checking if authToken cookie exists
+  // Check if authToken cookie exists (as per API documentation)
   isAuthenticated() {
-    // Check if authToken cookie exists
+    if (typeof document === 'undefined') return false;
+    
     const cookies = document.cookie.split(';');
     for (let cookie of cookies) {
       const [name, value] = cookie.trim().split('=');
-      if (name === 'authToken' && value) {
+      if (name === 'authToken' && value && value !== 'undefined' && value !== 'null') {
         return true;
       }
     }
     return false;
   }
 
-  // Get auth token from cookie (if needed for manual requests)
+  // Get the authToken cookie value (as per API documentation)
   getAuthToken() {
+    if (typeof document === 'undefined') return null;
+    
     const cookies = document.cookie.split(';');
     for (let cookie of cookies) {
       const [name, value] = cookie.trim().split('=');
-      if (name === 'authToken') {
+      if (name === 'authToken' && value && value !== 'undefined' && value !== 'null') {
         return value;
       }
     }
     return null;
   }
 
-  // Clear authentication (for logout)
+  // Clear auth cookie
   clearAuth() {
-    // Clear the cookie by setting it to expire
+    if (typeof document === 'undefined') return;
+    
+    // Clear the authToken cookie as specified in API docs
     document.cookie = 'authToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
   }
 
@@ -52,27 +55,42 @@ class MineazyAPI {
     const url = `${this.baseURL}${endpoint}`;
     
     let config = {
-      credentials: 'include', // IMPORTANT: This sends cookies with requests
+      credentials: 'include', // Still include for any cookies that might work
       headers: {
         ...options.headers,
       },
       ...options,
     };
 
-    // Don't set Content-Type for FormData
+    // Add Authorization header if we have a token
+    const token = this.getAuthToken();
+    if (token) {
+      config.headers['Authorization'] = `Bearer ${token}`;
+      console.log(`Adding Bearer token to request: ${endpoint}`, token.substring(0, 20) + '...');
+    }
+
+    // Only set Content-Type for JSON requests, not FormData
     if (!(options.body instanceof FormData) && !config.headers['Content-Type']) {
       config.headers['Content-Type'] = 'application/json';
     }
 
-    // Apply request interceptors
-    for (const interceptor of this.requestInterceptors) {
-      config = await interceptor(config);
-    }
+    // Debug: Log request details
+    console.log(`API Request: ${options.method || 'GET'} ${endpoint}`, {
+      url,
+      hasToken: !!token,
+      hasAuthHeader: !!config.headers['Authorization'],
+      credentials: config.credentials
+    });
 
     try {
       const response = await fetch(url, config);
       
-      // Handle different content types
+      // Debug: Log response details
+      console.log(`API Response: ${response.status} for ${endpoint}`, {
+        ok: response.ok,
+        status: response.status
+      });
+
       let data;
       const contentType = response.headers.get('content-type');
       
@@ -85,22 +103,13 @@ class MineazyAPI {
       }
       
       if (!response.ok) {
-        // Handle specific error cases
         if (response.status === 401) {
-          // Unauthorized - clear any existing cookies and redirect to login
+          console.warn('401 Unauthorized - clearing stored token');
           this.clearAuth();
-          if (window.location.pathname !== '/login') {
-            window.location.href = '/login';
-          }
         }
         
         const errorMessage = data.message || data.error || `HTTP error! status: ${response.status}`;
         throw new APIError(errorMessage, response.status, data);
-      }
-      
-      // Apply response interceptors
-      for (const interceptor of this.responseInterceptors) {
-        data = await interceptor(data, response);
       }
       
       return data;
@@ -109,32 +118,120 @@ class MineazyAPI {
         throw error;
       }
       
-      // Network or other errors
       console.error('API Request failed:', error);
       
       if (error.name === 'TypeError' && error.message.includes('fetch')) {
-        throw new APIError('Network error. Please check your connection.', 0, null);
+        throw new APIError('Network error. Please check your connection and CORS settings.', 0, null);
       }
       
       throw new APIError(error.message || 'An unexpected error occurred', 0, null);
     }
   }
 
+  // Test if the API is accessible and CORS is working
+  async testConnection() {
+    try {
+      const response = await this.request('/health');
+      return { success: true, message: 'API connection successful', data: response };
+    } catch (error) {
+      return { 
+        success: false, 
+        message: `API connection failed: ${error.message}`,
+        status: error.status 
+      };
+    }
+  }
+
   // Authentication endpoints
   async login(email, password) {
+    console.log('Attempting login...');
+    
     const response = await this.request('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     });
     
-    // The token is automatically stored in HTTP-only cookie
-    // We don't need to manually handle it
+    console.log('Login response received:', response);
+    
+    // Extract sessionId from response and use it as token
+    const sessionId = response.sessionId || response.data?.sessionId;
+    if (sessionId) {
+      console.log('SessionId found, storing as auth token:', sessionId.substring(0, 20) + '...');
+      // Store sessionId as our authentication token
+      this.setAuthToken(sessionId);
+    } else {
+      console.warn('No sessionId found in login response');
+    }
+    
+    // Check if cookie was set (for debugging)
+    const cookieAfterLogin = this.isAuthenticated();
+    console.log('Cookie set after login:', cookieAfterLogin);
+    console.log('All cookies:', document.cookie);
+    
     return response;
+  }
+
+  // Add token storage methods
+  setAuthToken(token) {
+    try {
+      localStorage.setItem('mineazy_auth_token', token);
+      console.log('Auth token stored in localStorage');
+    } catch (error) {
+      console.warn('Could not store token in localStorage:', error);
+    }
+  }
+
+  // Override getAuthToken to check localStorage first
+  getAuthToken() {
+    // First check localStorage for our stored token
+    try {
+      const stored = localStorage.getItem('mineazy_auth_token');
+      if (stored && stored !== 'null' && stored !== 'undefined') {
+        return stored;
+      }
+    } catch (error) {
+      console.warn('Could not access localStorage:', error);
+    }
+
+    // Fallback to cookie method
+    if (typeof document === 'undefined') return null;
+    
+    const cookies = document.cookie.split(';');
+    for (let cookie of cookies) {
+      const [name, value] = cookie.trim().split('=');
+      if (name === 'authToken' && value && value !== 'undefined' && value !== 'null') {
+        return value;
+      }
+    }
+    return null;
+  }
+
+  // Override isAuthenticated to check localStorage
+  isAuthenticated() {
+    return !!this.getAuthToken();
+  }
+
+  // Override clearAuth to clear localStorage
+  clearAuth() {
+    try {
+      localStorage.removeItem('mineazy_auth_token');
+    } catch (error) {
+      console.warn('Could not clear localStorage:', error);
+    }
+
+    if (typeof document === 'undefined') return;
+    
+    // Still try to clear cookies
+    document.cookie = 'authToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+    document.cookie = `authToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=.${window.location.hostname};`;
+    document.cookie = `authToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=${window.location.hostname};`;
   }
 
   async logout() {
     try {
       await this.request('/auth/logout', { method: 'POST' });
+    } catch (error) {
+      console.warn('Logout request failed:', error);
     } finally {
       this.clearAuth();
     }
@@ -164,24 +261,17 @@ class MineazyAPI {
   }
 
   async getProductById(id) {
-    if (!id) {
-      throw new APIError('Product ID is required', 400, null);
-    }
+    if (!id) throw new APIError('Product ID is required', 400, null);
     return this.request(`/products/${id}`);
   }
 
   async getProductBySku(sku) {
-    if (!sku) {
-      throw new APIError('Product SKU is required', 400, null);
-    }
+    if (!sku) throw new APIError('Product SKU is required', 400, null);
     return this.request(`/products/sku/${sku}`);
   }
 
   async createProduct(formData) {
-    if (!formData) {
-      throw new APIError('Product data is required', 400, null);
-    }
-    
+    if (!formData) throw new APIError('Product data is required', 400, null);
     return this.request('/products', {
       method: 'POST',
       body: formData,
@@ -189,12 +279,8 @@ class MineazyAPI {
   }
 
   async updateProduct(id, data) {
-    if (!id) {
-      throw new APIError('Product ID is required', 400, null);
-    }
-    
+    if (!id) throw new APIError('Product ID is required', 400, null);
     const body = data instanceof FormData ? data : JSON.stringify(data);
-    
     return this.request(`/products/${id}`, {
       method: 'PUT',
       body,
@@ -202,9 +288,7 @@ class MineazyAPI {
   }
 
   async deleteProduct(id) {
-    if (!id) {
-      throw new APIError('Product ID is required', 400, null);
-    }
+    if (!id) throw new APIError('Product ID is required', 400, null);
     return this.request(`/products/${id}`, { method: 'DELETE' });
   }
 
@@ -221,9 +305,7 @@ class MineazyAPI {
   }
 
   async getOrderById(id) {
-    if (!id) {
-      throw new APIError('Order ID is required', 400, null);
-    }
+    if (!id) throw new APIError('Order ID is required', 400, null);
     return this.request(`/orders/${id}`);
   }
 
@@ -231,7 +313,6 @@ class MineazyAPI {
     if (!data || !data.items || data.items.length === 0) {
       throw new APIError('Order must contain at least one item', 400, null);
     }
-    
     return this.request('/orders', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -242,21 +323,9 @@ class MineazyAPI {
     if (!id || !status) {
       throw new APIError('Order ID and status are required', 400, null);
     }
-    
     return this.request(`/orders/${id}/status`, {
       method: 'PATCH',
       body: JSON.stringify({ status, notes }),
-    });
-  }
-
-  async cancelOrder(id, reason = '') {
-    if (!id) {
-      throw new APIError('Order ID is required', 400, null);
-    }
-    
-    return this.request(`/orders/${id}/cancel`, {
-      method: 'POST',
-      body: JSON.stringify({ reason }),
     });
   }
 
@@ -266,9 +335,7 @@ class MineazyAPI {
   }
 
   async getBranchById(id) {
-    if (!id) {
-      throw new APIError('Branch ID is required', 400, null);
-    }
+    if (!id) throw new APIError('Branch ID is required', 400, null);
     return this.request(`/branches/${id}`);
   }
 
@@ -276,7 +343,6 @@ class MineazyAPI {
     if (!data || !data.name) {
       throw new APIError('Branch name is required', 400, null);
     }
-    
     return this.request('/branches', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -284,17 +350,19 @@ class MineazyAPI {
   }
 
   async updateBranch(id, data) {
-    if (!id) {
-      throw new APIError('Branch ID is required', 400, null);
-    }
-    
+    if (!id) throw new APIError('Branch ID is required', 400, null);
     return this.request(`/branches/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
   }
 
-  // Users endpoints (Admin only)
+  async deleteBranch(id) {
+    if (!id) throw new APIError('Branch ID is required', 400, null);
+    return this.request(`/branches/${id}`, { method: 'DELETE' });
+  }
+
+  // Users endpoints
   async getUsers(params = {}) {
     const cleanParams = Object.fromEntries(
       Object.entries(params).filter(([_, value]) => value !== '' && value != null)
@@ -307,9 +375,7 @@ class MineazyAPI {
   }
 
   async getUserById(id) {
-    if (!id) {
-      throw new APIError('User ID is required', 400, null);
-    }
+    if (!id) throw new APIError('User ID is required', 400, null);
     return this.request(`/admin/users/${id}`);
   }
 
@@ -317,7 +383,6 @@ class MineazyAPI {
     if (!data || !data.email || !data.name) {
       throw new APIError('User email and name are required', 400, null);
     }
-    
     return this.request('/admin/users', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -325,10 +390,7 @@ class MineazyAPI {
   }
 
   async updateUser(id, data) {
-    if (!id) {
-      throw new APIError('User ID is required', 400, null);
-    }
-    
+    if (!id) throw new APIError('User ID is required', 400, null);
     return this.request(`/admin/users/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
@@ -336,13 +398,11 @@ class MineazyAPI {
   }
 
   async deleteUser(id) {
-    if (!id) {
-      throw new APIError('User ID is required', 400, null);
-    }
+    if (!id) throw new APIError('User ID is required', 400, null);
     return this.request(`/admin/users/${id}`, { method: 'DELETE' });
   }
 
-  // Health check endpoints
+  // Health check
   async getHealthCheck() {
     return this.request('/health');
   }
@@ -350,19 +410,9 @@ class MineazyAPI {
   async getApiInfo() {
     return this.request('/info');
   }
-
-  // Method to test API connection
-  async testConnection() {
-    try {
-      await this.getHealthCheck();
-      return { success: true, message: 'API connection successful' };
-    } catch (error) {
-      return { success: false, message: error.message };
-    }
-  }
 }
 
-// Create and export a singleton instance
+// Create singleton instance
 const api = new MineazyAPI();
 
 export default api;

@@ -1,4 +1,4 @@
-// src/App.jsx - Updated with real components
+// src/App.jsx - Updated with better loading states
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -55,40 +55,47 @@ class ErrorBoundary extends React.Component {
   }
 }
 
-// Simple fallback component for pages that might have issues
-const FallbackPage = ({ title, subtitle }) => (
-  <div className="p-6">
-    <h1 className="text-2xl font-bold text-gray-900 mb-2">{title}</h1>
-    <p className="text-gray-600 mb-4">{subtitle}</p>
-    <div className="bg-yellow-100 border border-yellow-300 rounded p-4">
-      <p className="text-yellow-800">
-        This page is temporarily showing a fallback version. The full component will be loaded once any issues are resolved.
-      </p>
-    </div>
-  </div>
-);
-
 // Protected Route Component
 const ProtectedRoute = ({ children, requiredRoles = [] }) => {
   const { isAuthenticated, user, loading, userRole } = useAuth();
 
+  // Show loading spinner while auth state is being determined
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <LoadingSpinner size="lg" />
-        <span className="ml-3">Loading...</span>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <LoadingSpinner size="lg" />
+          <span className="ml-3 text-gray-600">Checking authentication...</span>
+        </div>
       </div>
     );
   }
 
+  // Redirect to login if not authenticated
   if (!isAuthenticated || !user) {
     return <Navigate to="/login" replace />;
   }
 
+  // Check role requirements
   if (requiredRoles.length > 0) {
     const hasRequiredRole = requiredRoles.includes(userRole);
     if (!hasRequiredRole) {
-      return <Navigate to="/dashboard" replace />;
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold text-gray-900 mb-4">Access Denied</h1>
+            <p className="text-gray-600 mb-4">
+              You don't have permission to access this page.
+            </p>
+            <button 
+              onClick={() => window.location.href = '/dashboard'}
+              className="bg-primary-600 text-white px-4 py-2 rounded hover:bg-primary-700"
+            >
+              Go to Dashboard
+            </button>
+          </div>
+        </div>
+      );
     }
   }
 
@@ -101,7 +108,19 @@ const ProtectedRoute = ({ children, requiredRoles = [] }) => {
 
 // App Routes Component
 const AppRoutes = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
+
+  // Show loading during initial auth check
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <LoadingSpinner size="lg" />
+          <span className="ml-3 text-gray-600">Loading application...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <Routes>
@@ -136,9 +155,7 @@ const AppRoutes = () => {
           path="products" 
           element={
             <ProtectedRoute requiredRoles={['admin', 'shop_manager', 'super_admin']}>
-              <ErrorBoundary>
-                <ProductsPage />
-              </ErrorBoundary>
+              <ProductsPage />
             </ProtectedRoute>
           }
         />
@@ -148,9 +165,7 @@ const AppRoutes = () => {
           path="orders" 
           element={
             <ProtectedRoute requiredRoles={['admin', 'shop_manager', 'super_admin']}>
-              <ErrorBoundary>
-                <OrdersPage />
-              </ErrorBoundary>
+              <OrdersPage />
             </ProtectedRoute>
           }
         />
@@ -160,9 +175,7 @@ const AppRoutes = () => {
           path="users" 
           element={
             <ProtectedRoute requiredRoles={['admin', 'super_admin']}>
-              <ErrorBoundary>
-                <UsersPage />
-              </ErrorBoundary>
+              <UsersPage />
             </ProtectedRoute>
           }
         />
@@ -172,9 +185,7 @@ const AppRoutes = () => {
           path="branches" 
           element={
             <ProtectedRoute requiredRoles={['admin', 'super_admin']}>
-              <ErrorBoundary>
-                <BranchesPage />
-              </ErrorBoundary>
+              <BranchesPage />
             </ProtectedRoute>
           }
         />
@@ -184,9 +195,7 @@ const AppRoutes = () => {
           path="payments" 
           element={
             <ProtectedRoute requiredRoles={['admin', 'shop_manager', 'super_admin']}>
-              <ErrorBoundary>
-                <PaymentsPage />
-              </ErrorBoundary>
+              <PaymentsPage />
             </ProtectedRoute>
           }
         />
@@ -196,9 +205,7 @@ const AppRoutes = () => {
           path="reports" 
           element={
             <ProtectedRoute requiredRoles={['admin', 'shop_manager', 'super_admin']}>
-              <ErrorBoundary>
-                <ReportsPage />
-              </ErrorBoundary>
+              <ReportsPage />
             </ProtectedRoute>
           }
         />
@@ -208,9 +215,7 @@ const AppRoutes = () => {
           path="inquiries" 
           element={
             <ProtectedRoute requiredRoles={['admin', 'shop_manager', 'super_admin']}>
-              <ErrorBoundary>
-                <InquiriesPage />
-              </ErrorBoundary>
+              <InquiriesPage />
             </ProtectedRoute>
           }
         />
@@ -220,9 +225,7 @@ const AppRoutes = () => {
           path="audit" 
           element={
             <ProtectedRoute requiredRoles={['admin', 'super_admin']}>
-              <ErrorBoundary>
-                <AuditPage />
-              </ErrorBoundary>
+              <AuditPage />
             </ProtectedRoute>
           }
         />
@@ -232,9 +235,7 @@ const AppRoutes = () => {
           path="settings" 
           element={
             <ProtectedRoute requiredRoles={['admin', 'shop_manager', 'super_admin']}>
-              <ErrorBoundary>
-                <SettingsPage />
-              </ErrorBoundary>
+              <SettingsPage />
             </ProtectedRoute>
           }
         />

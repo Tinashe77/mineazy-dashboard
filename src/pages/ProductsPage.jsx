@@ -1,12 +1,14 @@
-// src/pages/ProductsPage.jsx
+// src/pages/ProductsPage.jsx - Fixed version with better auth handling
 import React, { useState, useEffect } from 'react';
 import { PageHeader } from '../components/layout';
 import { ProductForm, ProductList, ProductFilters } from '../components/products';
 import { Button, Alert } from '../components/ui';
 import { Plus } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
 
 export const ProductsPage = () => {
+  const { isAuthenticated, user, userRole } = useAuth();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -41,15 +43,27 @@ export const ProductsPage = () => {
       };
 
       const response = await api.getProducts(params);
+      console.log('Products API response:', response);
       
-      setProducts(response.data || []);
+      // Handle different response structures
+      let productsData = [];
+      if (Array.isArray(response)) {
+        productsData = response;
+      } else if (response.data && Array.isArray(response.data)) {
+        productsData = response.data;
+      } else if (response.products && Array.isArray(response.products)) {
+        productsData = response.products;
+      }
+      
+      setProducts(productsData);
       setPagination(prev => ({
         ...prev,
         totalPages: response.totalPages || 1,
         totalItems: response.total || 0,
       }));
     } catch (error) {
-      setError(error.message);
+      console.error('Failed to load products:', error);
+      setError(`Failed to load products: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -57,22 +71,72 @@ export const ProductsPage = () => {
 
   const handleCreateProduct = async (formData) => {
     try {
-      await api.createProduct(formData);
+      setError(null);
+      
+      // Debug: Check if we're authenticated
+      if (!isAuthenticated) {
+        throw new Error('You must be logged in to create products');
+      }
+      
+      // Debug: Check user role
+      if (!['admin', 'shop_manager', 'super_admin'].includes(userRole)) {
+        throw new Error(`Access denied. Your role (${userRole}) doesn't have permission to create products`);
+      }
+      
+      // Debug: Check if cookie exists
+      if (!api.isAuthenticated()) {
+        throw new Error('Authentication cookie not found. Please login again.');
+      }
+      
+      console.log('Creating product with auth check passed:', {
+        isAuthenticated,
+        userRole,
+        hasCookie: api.isAuthenticated(),
+        user: user?.name
+      });
+      
+      const response = await api.createProduct(formData);
+      console.log('Product creation response:', response);
+      
       await loadProducts();
       setShowProductForm(false);
+      
+      // Show success message
+      setError(null);
+      
     } catch (error) {
-      throw new Error('Failed to create product: ' + error.message);
+      console.error('Product creation error:', error);
+      
+      // Handle specific error cases
+      if (error.status === 401) {
+        setError('Authentication failed. Please login again.');
+        // Could trigger re-authentication here
+      } else if (error.status === 403) {
+        setError('Access denied. You don\'t have permission to create products.');
+      } else {
+        setError(`Failed to create product: ${error.message}`);
+      }
+      
+      throw error; // Re-throw so form can handle it
     }
   };
 
   const handleUpdateProduct = async (formData, productId) => {
     try {
+      setError(null);
+      
+      if (!isAuthenticated || !api.isAuthenticated()) {
+        throw new Error('Authentication required. Please login again.');
+      }
+      
       await api.updateProduct(productId, formData);
       await loadProducts();
       setShowProductForm(false);
       setSelectedProduct(null);
     } catch (error) {
-      throw new Error('Failed to update product: ' + error.message);
+      console.error('Product update error:', error);
+      setError(`Failed to update product: ${error.message}`);
+      throw error;
     }
   };
 
@@ -82,10 +146,18 @@ export const ProductsPage = () => {
     }
 
     try {
+      setError(null);
+      
+      if (!isAuthenticated || !api.isAuthenticated()) {
+        setError('Authentication required. Please login again.');
+        return;
+      }
+      
       await api.deleteProduct(productId);
       await loadProducts();
     } catch (error) {
-      setError('Failed to delete product: ' + error.message);
+      console.error('Product deletion error:', error);
+      setError(`Failed to delete product: ${error.message}`);
     }
   };
 
@@ -102,21 +174,26 @@ export const ProductsPage = () => {
     }
   };
 
+  // Check if user has permission to manage products
+  const canManageProducts = ['admin', 'shop_manager', 'super_admin'].includes(userRole);
+
   return (
     <div className="space-y-6">
       <PageHeader
         title="Products Management"
         subtitle="Manage your mining equipment inventory"
       >
-        <Button
-          onClick={() => {
-            setSelectedProduct(null);
-            setShowProductForm(true);
-          }}
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Add Product
-        </Button>
+        {canManageProducts && (
+          <Button
+            onClick={() => {
+              setSelectedProduct(null);
+              setShowProductForm(true);
+            }}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add Product
+          </Button>
+        )}
       </PageHeader>
 
       {error && (
@@ -124,6 +201,14 @@ export const ProductsPage = () => {
           {error}
         </Alert>
       )}
+
+      {/* Debug Info - Remove in production */}
+      <div className="bg-gray-100 p-3 rounded text-xs text-gray-600">
+        <strong>Debug:</strong> Auth: {isAuthenticated ? 'Yes' : 'No'} | 
+        Role: {userRole || 'None'} | 
+        Cookie: {api.isAuthenticated() ? 'Present' : 'Missing'} | 
+        User: {user?.name || 'None'}
+      </div>
 
       <ProductFilters
         filters={filters}
@@ -134,20 +219,22 @@ export const ProductsPage = () => {
       <ProductList
         products={products}
         loading={loading}
-        onEdit={handleEditProduct}
-        onDelete={handleDeleteProduct}
+        onEdit={canManageProducts ? handleEditProduct : null}
+        onDelete={canManageProducts ? handleDeleteProduct : null}
         onView={(product) => console.log('View product:', product)}
       />
 
-      <ProductForm
-        isOpen={showProductForm}
-        onClose={() => {
-          setShowProductForm(false);
-          setSelectedProduct(null);
-        }}
-        product={selectedProduct}
-        onSave={handleSaveProduct}
-      />
+      {canManageProducts && (
+        <ProductForm
+          isOpen={showProductForm}
+          onClose={() => {
+            setShowProductForm(false);
+            setSelectedProduct(null);
+          }}
+          product={selectedProduct}
+          onSave={handleSaveProduct}
+        />
+      )}
     </div>
   );
 };

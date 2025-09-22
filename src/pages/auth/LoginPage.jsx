@@ -1,8 +1,9 @@
-// src/pages/auth/LoginPage.jsx
+// src/pages/auth/LoginPage.jsx - Debug version
 import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button, Input, Alert } from '../../components/ui';
 import { Eye, EyeOff } from 'lucide-react';
+import api from '../../services/api';
 
 export const LoginPage = () => {
   const { login, loading, error, clearError } = useAuth();
@@ -12,6 +13,7 @@ export const LoginPage = () => {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [formErrors, setFormErrors] = useState({});
+  const [debugInfo, setDebugInfo] = useState(null);
 
   const validateForm = () => {
     const errors = {};
@@ -39,9 +41,45 @@ export const LoginPage = () => {
     }
 
     try {
-      await login(formData.email, formData.password);
+      setDebugInfo(null);
+      console.log('Starting login with:', formData.email);
+      
+      // Debug: Check API base URL
+      console.log('API Base URL:', api.baseURL);
+      
+      // Debug: Test connection first
+      try {
+        const healthCheck = await api.getHealthCheck();
+        console.log('Health check response:', healthCheck);
+      } catch (healthError) {
+        console.error('Health check failed:', healthError);
+        setDebugInfo(prev => ({ ...prev, healthCheck: { error: healthError.message } }));
+      }
+      
+      const response = await login(formData.email, formData.password);
+      
+      // Debug: Check what we got back
+      setDebugInfo({
+        loginResponse: response,
+        cookieAfterLogin: api.isAuthenticated(),
+        tokenAfterLogin: api.getAuthToken(),
+        allCookies: document.cookie
+      });
+      
+      console.log('Login successful, debug info:', {
+        response,
+        hasCookie: api.isAuthenticated(),
+        token: api.getAuthToken()?.substring(0, 20) + '...'
+      });
+      
     } catch (error) {
-      // Error is handled by the auth context
+      console.error('Login failed:', error);
+      setDebugInfo({
+        error: error.message,
+        status: error.status,
+        cookieAfterError: api.isAuthenticated(),
+        allCookies: document.cookie
+      });
     }
   };
 
@@ -49,6 +87,40 @@ export const LoginPage = () => {
     setFormData(prev => ({ ...prev, [field]: value }));
     if (formErrors[field]) {
       setFormErrors(prev => ({ ...prev, [field]: undefined }));
+    }
+  };
+
+  const testDirectAPI = async () => {
+    try {
+      setDebugInfo(null);
+      const response = await fetch('https://minings.onrender.com/api/v1/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password
+        })
+      });
+
+      const data = await response.json();
+      
+      setDebugInfo({
+        directAPI: true,
+        status: response.status,
+        ok: response.ok,
+        headers: Object.fromEntries(response.headers.entries()),
+        data: data,
+        cookiesAfter: document.cookie
+      });
+      
+    } catch (error) {
+      setDebugInfo({
+        directAPI: true,
+        error: error.message
+      });
     }
   };
 
@@ -100,14 +172,35 @@ export const LoginPage = () => {
             </div>
           </div>
           
-          <Button
-            type="submit"
-            loading={loading}
-            className="w-full"
-          >
-            Sign in
-          </Button>
+          <div className="space-y-2">
+            <Button
+              type="submit"
+              loading={loading}
+              className="w-full"
+            >
+              Sign in
+            </Button>
+            
+            <Button
+              type="button"
+              variant="outline"
+              onClick={testDirectAPI}
+              className="w-full"
+            >
+              Test Direct API
+            </Button>
+          </div>
         </form>
+        
+        {/* Debug Information */}
+        {debugInfo && (
+          <div className="mt-4 p-3 bg-gray-50 rounded text-xs">
+            <h4 className="font-medium mb-2">Debug Info:</h4>
+            <pre className="whitespace-pre-wrap overflow-auto max-h-40">
+              {JSON.stringify(debugInfo, null, 2)}
+            </pre>
+          </div>
+        )}
         
         <div className="mt-6 text-xs text-gray-500 bg-gray-50 p-4 rounded-lg">
           <p className="font-medium mb-2">Test Credentials:</p>

@@ -4,6 +4,9 @@ import { useAuth } from '../contexts/AuthContext';
 import { Card, CardContent, Badge, LoadingSpinner, Alert, Button } from '../components/ui';
 import { formatCurrency, formatDate } from '../utils';
 import api from '../services/api';
+import { AuthDebug } from '../components/AuthDebug';
+import CORSDebug from '../components/CORSDebug';
+
 import {
   Package,
   ShoppingCart,
@@ -162,6 +165,7 @@ export const DashboardPage = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
+      
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
@@ -183,7 +187,8 @@ export const DashboardPage = () => {
           </Button>
         </div>
       </div>
-
+<AuthDebug />
+<CORSDebug />
       {error && (
         <Alert variant="error" onClose={() => setDashboardData(prev => ({ ...prev, error: null }))}>
           {error}

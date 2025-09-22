@@ -268,7 +268,7 @@ class APITester {
           email: 'test@mining.com'
         },
         currencies: {
-          USD: { rate: 1, symbol: ' },
+          USD: { rate: 1, symbol: 'USD' },
           ZWG: { rate: 50, symbol: 'ZWG' }
         },
         status: 'active'
