@@ -249,16 +249,61 @@ class MineazyAPI {
   }
 
   // Products endpoints
-  async getProducts(params = {}) {
-    const cleanParams = Object.fromEntries(
-      Object.entries(params).filter(([_, value]) => value !== '' && value != null)
-    );
-    
-    const queryString = new URLSearchParams(cleanParams).toString();
-    const endpoint = queryString ? `/products?${queryString}` : '/products';
-    
-    return this.request(endpoint);
+  // Update the getProducts method in src/services/api.js
+
+async getProducts(params = {}) {
+  console.log('getProducts called with params:', params);
+  
+  // Clean up parameters - remove empty values and null/undefined
+  const cleanParams = {};
+  
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== '' && value !== null && value !== undefined) {
+      // Handle boolean conversion for isActive
+      if (key === 'isActive') {
+        cleanParams[key] = value;
+      }
+      // Handle numeric conversion for prices and pagination
+      else if (['minPrice', 'maxPrice', 'page', 'limit'].includes(key)) {
+        const numValue = parseFloat(value);
+        if (!isNaN(numValue)) {
+          cleanParams[key] = numValue;
+        }
+      }
+      // Handle string parameters
+      else if (typeof value === 'string' && value.trim() !== '') {
+        cleanParams[key] = value.trim();
+      }
+      // Handle other types as-is
+      else {
+        cleanParams[key] = value;
+      }
+    }
+  });
+  
+  console.log('Cleaned params for API:', cleanParams);
+  
+  const queryString = new URLSearchParams();
+  
+  // Build query string properly
+  Object.entries(cleanParams).forEach(([key, value]) => {
+    queryString.append(key, value.toString());
+  });
+  
+  const queryStringText = queryString.toString();
+  const endpoint = queryStringText ? `/products?${queryStringText}` : '/products';
+  
+  console.log('Final API endpoint:', endpoint);
+  
+  try {
+    const response = await this.request(endpoint);
+    console.log('getProducts response:', response);
+    return response;
+  } catch (error) {
+    console.error('getProducts error:', error);
+    throw error;
   }
+}
 
   async getProductById(id) {
     if (!id) throw new APIError('Product ID is required', 400, null);
@@ -281,24 +326,29 @@ class MineazyAPI {
 async updateProduct(id, data) {
   if (!id) throw new APIError('Product ID is required', 400, null);
   
+  console.log('Updating product with ID:', id);
+  console.log('Update data type:', typeof data);
+  console.log('Update data:', data);
+  
+  let requestConfig = {
+    method: 'PUT',
+  };
+
   // If data is FormData (has images), use it directly
-  // Otherwise, create FormData from the object
-  let body;
   if (data instanceof FormData) {
-    body = data;
+    console.log('Using FormData for update (with images)');
+    requestConfig.body = data;
+    // Don't set Content-Type, let browser set it for FormData
   } else {
-    body = new FormData();
-    Object.keys(data).forEach(key => {
-      if (data[key] !== undefined && data[key] !== null) {
-        body.append(key, data[key]);
-      }
-    });
+    console.log('Using JSON for update (no images)');
+    // For regular updates without images, send as JSON
+    requestConfig.headers = {
+      'Content-Type': 'application/json'
+    };
+    requestConfig.body = JSON.stringify(data);
   }
   
-  return this.request(`/products/${id}`, {
-    method: 'PUT',
-    body,
-  });
+  return this.request(`/products/${id}`, requestConfig);
 }
 
   async deleteProduct(id) {

@@ -1,8 +1,9 @@
-// Update src/pages/ProductsPage.jsx - add bulk import functionality
-import React, { useState, useEffect } from 'react';
+// src/pages/ProductsPage.jsx - Updated with Product View Modal
+import React, { useState, useEffect, useCallback } from 'react';
 import { PageHeader } from '../components/layout';
 import { ProductForm, ProductList, ProductFilters } from '../components/products';
 import { ProductBulkImport } from '../components/products/ProductBulkImport';
+import { ProductViewModal } from '../components/products/ProductViewModal';
 import { Button, Alert } from '../components/ui';
 import { Plus, Upload } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
@@ -16,11 +17,15 @@ export const ProductsPage = () => {
   const [success, setSuccess] = useState(null);
   const [showProductForm, setShowProductForm] = useState(false);
   const [showBulkImport, setShowBulkImport] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [viewProduct, setViewProduct] = useState(null);
   const [filters, setFilters] = useState({
     search: '',
     category: '',
     status: '',
+    minPrice: '',
+    maxPrice: '',
   });
   const [pagination, setPagination] = useState({
     currentPage: 1,
@@ -28,47 +33,140 @@ export const ProductsPage = () => {
     totalItems: 0,
   });
 
-  useEffect(() => {
-    loadProducts();
-  }, [filters, pagination.currentPage]);
+  // Debounced filter function to prevent too many API calls
+  const [filterTimeout, setFilterTimeout] = useState(null);
 
-  const loadProducts = async () => {
+  const loadProducts = useCallback(async (newFilters = null, page = null) => {
     try {
       setLoading(true);
       setError(null);
       
+      const currentFilters = newFilters || filters;
+      const currentPage = page || pagination.currentPage;
+      
+      console.log('Loading products with filters:', currentFilters);
+      console.log('Current page:', currentPage);
+      
+      // Build API parameters
       const params = {
-        page: pagination.currentPage,
+        page: currentPage,
         limit: 20,
-        ...Object.fromEntries(
-          Object.entries(filters).filter(([_, value]) => value !== '')
-        ),
       };
 
-      const response = await api.getProducts(params);
-      
-      let productsData = [];
-      if (Array.isArray(response)) {
-        productsData = response;
-      } else if (response.data && Array.isArray(response.data)) {
-        productsData = response.data;
-      } else if (response.products && Array.isArray(response.products)) {
-        productsData = response.products;
+      // Add filters to params, only if they have values
+      if (currentFilters.search && currentFilters.search.trim()) {
+        params.search = currentFilters.search.trim();
       }
       
+      if (currentFilters.category) {
+        params.category = currentFilters.category;
+      }
+      
+      if (currentFilters.status !== '') {
+        // Convert string to boolean for isActive
+        params.isActive = currentFilters.status === 'true';
+      }
+      
+      if (currentFilters.minPrice && currentFilters.minPrice !== '') {
+        params.minPrice = parseFloat(currentFilters.minPrice);
+      }
+      
+      if (currentFilters.maxPrice && currentFilters.maxPrice !== '') {
+        params.maxPrice = parseFloat(currentFilters.maxPrice);
+      }
+
+      console.log('API params being sent:', params);
+      
+      const response = await api.getProducts(params);
+      console.log('Products API response:', response);
+      
+      let productsData = [];
+      let paginationData = {};
+      
+      if (Array.isArray(response)) {
+        productsData = response;
+        paginationData = {
+          currentPage: 1,
+          totalPages: 1,
+          totalItems: response.length,
+        };
+      } else if (response.data && Array.isArray(response.data)) {
+        productsData = response.data;
+        paginationData = {
+          currentPage: response.page || currentPage,
+          totalPages: response.totalPages || 1,
+          totalItems: response.total || response.totalItems || response.data.length,
+        };
+      } else if (response.products && Array.isArray(response.products)) {
+        productsData = response.products;
+        paginationData = {
+          currentPage: response.page || currentPage,
+          totalPages: response.totalPages || 1,
+          totalItems: response.total || response.totalItems || response.products.length,
+        };
+      }
+      
+      console.log('Processed products data:', productsData.length);
+      console.log('Pagination data:', paginationData);
+      
       setProducts(productsData);
-      setPagination(prev => ({
-        ...prev,
-        totalPages: response.totalPages || 1,
-        totalItems: response.total || productsData.length,
-      }));
+      setPagination(paginationData);
+      
     } catch (error) {
       console.error('Failed to load products:', error);
       setError(`Failed to load products: ${error.message}`);
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters, pagination.currentPage]);
+
+  // Load products on component mount
+  useEffect(() => {
+    loadProducts();
+  }, []); // Only run once on mount
+
+  // Handle filter changes with debouncing
+  const handleFiltersChange = useCallback((newFilters) => {
+    console.log('Filters changed:', newFilters);
+    setFilters(newFilters);
+    
+    // Clear existing timeout
+    if (filterTimeout) {
+      clearTimeout(filterTimeout);
+    }
+    
+    // Set new timeout for debounced API call
+    const timeout = setTimeout(() => {
+      console.log('Applying filters after debounce:', newFilters);
+      // Reset to page 1 when filters change
+      setPagination(prev => ({ ...prev, currentPage: 1 }));
+      loadProducts(newFilters, 1);
+    }, 500); // 500ms debounce
+    
+    setFilterTimeout(timeout);
+  }, [filterTimeout, loadProducts]);
+
+  // Handle clear filters
+  const handleClearFilters = useCallback(() => {
+    console.log('Clearing filters');
+    const clearedFilters = {
+      search: '',
+      category: '',
+      status: '',
+      minPrice: '',
+      maxPrice: '',
+    };
+    setFilters(clearedFilters);
+    setPagination(prev => ({ ...prev, currentPage: 1 }));
+    loadProducts(clearedFilters, 1);
+  }, [loadProducts]);
+
+  // Handle page changes
+  const handlePageChange = useCallback((newPage) => {
+    console.log('Page changed to:', newPage);
+    setPagination(prev => ({ ...prev, currentPage: newPage }));
+    loadProducts(null, newPage);
+  }, [loadProducts]);
 
   const handleSaveProduct = async (formData, productId) => {
     try {
@@ -82,6 +180,7 @@ export const ProductsPage = () => {
         setSuccess('Product created successfully!');
       }
       
+      // Reload products with current filters
       await loadProducts();
       setShowProductForm(false);
       setSelectedProduct(null);
@@ -103,6 +202,7 @@ export const ProductsPage = () => {
       setError(null);
       await api.deleteProduct(productId);
       setSuccess('Product deleted successfully!');
+      // Reload products with current filters
       await loadProducts();
       setTimeout(() => setSuccess(null), 3000);
     } catch (error) {
@@ -116,9 +216,16 @@ export const ProductsPage = () => {
     setShowProductForm(true);
   };
 
+  const handleViewProduct = (product) => {
+    console.log('Viewing product:', product);
+    setViewProduct(product);
+    setShowViewModal(true);
+  };
+
   const handleImportSuccess = () => {
     setShowBulkImport(false);
     setSuccess('Products imported successfully!');
+    // Reload products with current filters
     loadProducts();
     setTimeout(() => setSuccess(null), 3000);
   };
@@ -167,8 +274,8 @@ export const ProductsPage = () => {
 
       <ProductFilters
         filters={filters}
-        onFiltersChange={setFilters}
-        onClearFilters={() => setFilters({ search: '', category: '', status: '' })}
+        onFiltersChange={handleFiltersChange}
+        onClearFilters={handleClearFilters}
       />
 
       <ProductList
@@ -176,31 +283,44 @@ export const ProductsPage = () => {
         loading={loading}
         onEdit={canManageProducts ? handleEditProduct : null}
         onDelete={canManageProducts ? handleDeleteProduct : null}
-        onView={(product) => console.log('View product:', product)}
+        onView={handleViewProduct}
       />
 
       {/* Pagination */}
       {pagination.totalPages > 1 && (
-        <div className="flex justify-center space-x-2">
+        <div className="flex justify-center items-center space-x-4">
           <Button
             variant="outline"
             disabled={pagination.currentPage === 1}
-            onClick={() => setPagination(prev => ({ ...prev, currentPage: prev.currentPage - 1 }))}
+            onClick={() => handlePageChange(pagination.currentPage - 1)}
           >
             Previous
           </Button>
-          <span className="py-2 px-4">
-            Page {pagination.currentPage} of {pagination.totalPages}
+          
+          <span className="text-sm text-gray-700">
+            Page {pagination.currentPage} of {pagination.totalPages} 
+            ({pagination.totalItems} total products)
           </span>
+          
           <Button
             variant="outline"
             disabled={pagination.currentPage === pagination.totalPages}
-            onClick={() => setPagination(prev => ({ ...prev, currentPage: prev.currentPage + 1 }))}
+            onClick={() => handlePageChange(pagination.currentPage + 1)}
           >
             Next
           </Button>
         </div>
       )}
+
+      {/* Product View Modal */}
+      <ProductViewModal
+        isOpen={showViewModal}
+        onClose={() => {
+          setShowViewModal(false);
+          setViewProduct(null);
+        }}
+        product={viewProduct}
+      />
 
       {canManageProducts && (
         <>
@@ -214,12 +334,22 @@ export const ProductsPage = () => {
             onSave={handleSaveProduct}
           />
 
-         <ProductBulkImport
+          <ProductBulkImport
             isOpen={showBulkImport}
             onClose={() => setShowBulkImport(false)}
             onImportSuccess={handleImportSuccess}
           />
         </>
+      )}
+
+      {/* Debug info */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="bg-gray-50 p-3 rounded text-xs">
+          <strong>Debug:</strong> 
+          Products: {products.length} | 
+          Filters: {JSON.stringify(filters)} | 
+          Page: {pagination.currentPage}/{pagination.totalPages}
+        </div>
       )}
     </div>
   );

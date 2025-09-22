@@ -38,6 +38,43 @@ export const ProductList = ({
     }
   };
 
+  // Helper function to extract price value
+  const getProductPrice = (product) => {
+    // Try different price structures
+    if (product.price?.regular_price) return product.price.regular_price;
+    if (product.price?.usd) return product.price.usd;
+    if (product.regular_price) return product.regular_price;
+    if (typeof product.price === 'number') return product.price;
+    if (product.prices?.USD) return product.prices.USD;
+    return 0;
+  };
+
+  // Helper function to get category name
+  const getCategoryName = (product) => {
+    if (product.category?.name) return product.category.name;
+    if (typeof product.category === 'string') return product.category;
+    return 'No Category';
+  };
+
+  // Helper function to get stock value
+  const getStockValue = (product) => {
+    if (product.stock?.quantity !== undefined) return product.stock.quantity;
+    if (typeof product.stock === 'number') return product.stock;
+    return 0;
+  };
+
+  // Helper function to get product status
+  const getProductStatus = (product) => {
+    if (product.isActive === false) return 'inactive';
+    if (product.status) return product.status;
+    return 'active';
+  };
+
+  // Helper function to get product description
+  const getProductDescription = (product) => {
+    return product.desc || product.description || '';
+  };
+
   if (loading) {
     return (
       <div className="bg-white rounded-lg shadow">
@@ -93,6 +130,9 @@ export const ProductList = ({
           {products.map((product) => {
             const productId = product.id || product._id;
             const isSelected = selectedProducts.includes(productId);
+            const stockValue = getStockValue(product);
+            const productPrice = getProductPrice(product);
+            const productStatus = getProductStatus(product);
             
             return (
               <TableRow key={productId}>
@@ -112,75 +152,112 @@ export const ProductList = ({
                           src={product.images[0]}
                           alt={product.name}
                           className="h-10 w-10 rounded-lg object-cover"
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                            e.target.nextSibling.style.display = 'flex';
+                          }}
                         />
-                      ) : (
-                        <div className="h-10 w-10 rounded-lg bg-gray-200 flex items-center justify-center">
-                          <Package className="h-5 w-5 text-gray-500" />
-                        </div>
-                      )}
+                      ) : null}
+                      <div 
+                        className={`h-10 w-10 rounded-lg bg-gray-200 flex items-center justify-center ${
+                          product.images && product.images.length > 0 ? 'hidden' : ''
+                        }`}
+                      >
+                        <Package className="h-5 w-5 text-gray-500" />
+                      </div>
                     </div>
                     <div className="ml-4">
                       <div className="text-sm font-medium text-gray-900">
                         {product.name}
                       </div>
                       <div className="text-sm text-gray-500">
-                        {truncateText(product.description, 50)}
+                        {truncateText(getProductDescription(product), 50)}
                       </div>
                     </div>
                   </div>
                 </TableCell>
                 <TableCell>
                   <span className="text-sm font-mono text-gray-900">
-                    {product.sku}
+                    {product.sku || 'N/A'}
                   </span>
                 </TableCell>
                 <TableCell>
                   <span className="text-sm text-gray-900">
-                    {product.category}
+                    {getCategoryName(product)}
                   </span>
                 </TableCell>
                 <TableCell>
-                  <span className="text-sm font-medium text-gray-900">
-                    {formatCurrency(product.price || product.prices?.USD, product.currency || 'USD')}
-                  </span>
+                  <div className="text-sm">
+                    <div className="font-medium text-gray-900">
+                      {formatCurrency(productPrice, product.currency || 'USD')}
+                    </div>
+                    {/* Show ZWG price if available */}
+                    {product.price?.currency?.zwg && (
+                      <div className="text-gray-500 text-xs">
+                        ZWG {product.price.currency.zwg.toLocaleString()}
+                      </div>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell>
-                  <span className={`text-sm font-medium ${
-                    (product.stock?.quantity || product.stock) < 5 
-                      ? 'text-red-600' 
-                      : 'text-gray-900'
-                  }`}>
-                    {product.stock?.quantity || product.stock}
-                  </span>
+                  <div className="flex items-center">
+                    <span className={`text-sm font-medium ${
+                      stockValue < 5 
+                        ? 'text-red-600' 
+                        : stockValue < 10
+                        ? 'text-yellow-600'
+                        : 'text-gray-900'
+                    }`}>
+                      {stockValue}
+                    </span>
+                    {stockValue < 5 && (
+                      <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
+                        Low Stock
+                      </span>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell>
-                  <Badge variant={getStatusVariant(product.status || 'active')}>
-                    {product.status || 'active'}
+                  <Badge variant={getStatusVariant(productStatus)}>
+                    {productStatus}
                   </Badge>
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center space-x-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onView(product)}
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onEdit(product)}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onDelete(productId)}
-                    >
-                      <Trash2 className="h-4 w-4 text-red-500" />
-                    </Button>
+                    {onView && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onView(product)}
+                        title="Preview Product"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    )}
+                    {onEdit && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onEdit(product)}
+                        title="Edit Product"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    )}
+                    {onDelete && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          if (confirm(`Delete product "${product.name}"?`)) {
+                            onDelete(productId);
+                          }
+                        }}
+                        title="Delete Product"
+                      >
+                        <Trash2 className="h-4 w-4 text-red-500" />
+                      </Button>
+                    )}
                   </div>
                 </TableCell>
               </TableRow>

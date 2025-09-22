@@ -9,6 +9,9 @@ export default defineConfig({
       '@': path.resolve(__dirname, 'src'), // Ensure this points to your `src` directory
     },
   },
+  esbuild: {
+    target: 'es2020' // This enables optional chaining
+  },
   server: {
     proxy: {
       '/api': {

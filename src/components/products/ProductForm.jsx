@@ -1,4 +1,4 @@
-// src/components/products/ProductForm.jsx
+// src/components/products/ProductForm.jsx - Fixed version
 import React, { useState, useEffect } from 'react';
 import { Button, Input, Select, Textarea, Modal } from '../ui';
 import { Upload, X } from 'lucide-react';
@@ -13,7 +13,7 @@ export const ProductForm = ({
 }) => {
   const [formData, setFormData] = useState({
     name: '',
-    desc: '', // Changed from description to desc
+    desc: '',
     regular_price: '',
     sale_price: '',
     usd_price: '',
@@ -34,29 +34,85 @@ export const ProductForm = ({
   const [branches, setBranches] = useState([]);
 
   useEffect(() => {
+    console.log('ProductForm mounted, loading categories and branches...');
     loadCategories();
     loadBranches();
   }, []);
 
   useEffect(() => {
-    if (product) {
-      setFormData({
+    console.log('Product changed:', product);
+    if (product && isOpen) {
+      console.log('Populating form with product data:', product);
+      
+      // Extract proper values from product object
+      const extractPrice = (priceData) => {
+        if (typeof priceData === 'number') return priceData;
+        if (priceData?.regular_price) return priceData.regular_price;
+        if (priceData?.usd) return priceData.usd;
+        return '';
+      };
+
+      const extractCurrency = (priceData, currency) => {
+        if (priceData?.currency?.[currency]) return priceData.currency[currency];
+        if (priceData?.[currency]) return priceData[currency];
+        return '';
+      };
+
+      // Get category ID properly
+      const getCategoryId = () => {
+        if (product.category?._id) return product.category._id;
+        if (product.category?.id) return product.category.id;
+        if (typeof product.category === 'string') return product.category;
+        return '';
+      };
+
+      // Get branch ID properly
+      const getBranchId = () => {
+        if (product.branch?._id) return product.branch._id;
+        if (product.branch?.id) return product.branch.id;
+        if (typeof product.branch === 'string') return product.branch;
+        return '';
+      };
+
+      // Get stock value properly
+      const getStock = () => {
+        if (product.stock?.quantity !== undefined) return product.stock.quantity;
+        if (typeof product.stock === 'number') return product.stock;
+        return '';
+      };
+
+      // Get tags properly
+      const getTags = () => {
+        if (Array.isArray(product.tags)) return product.tags.join(', ');
+        if (typeof product.tags === 'string') return product.tags;
+        return '';
+      };
+
+      const newFormData = {
         name: product.name || '',
         desc: product.desc || product.description || '',
-        regular_price: product.price?.regular_price || product.regular_price || product.price || '',
+        regular_price: extractPrice(product.price) || extractPrice(product) || '',
         sale_price: product.price?.sale_price || product.sale_price || '',
-        usd_price: product.price?.usd_price || product.usd_price || product.price || '',
-        zwg_price: product.price?.zwg_price || product.zwg_price || '',
-        category: product.category?._id || product.category || '',
+        usd_price: extractCurrency(product.price, 'usd') || extractPrice(product.price) || product.usd_price || '',
+        zwg_price: extractCurrency(product.price, 'zwg') || product.zwg_price || '',
+        category: getCategoryId(),
         subcategory: product.subcategory || '',
-        branch: product.branch?._id || product.branch || '',
-        stock: product.stock?.quantity || product.stock || '',
+        branch: getBranchId(),
+        stock: getStock(),
         sku: product.sku || '',
-        tags: Array.isArray(product.tags) ? product.tags.join(', ') : product.tags || '',
+        tags: getTags(),
         isActive: product.isActive !== false,
-      });
-    } else {
-      // Reset form for new product
+      };
+
+      console.log('Extracted form data:', newFormData);
+      setFormData(newFormData);
+
+      // Handle existing images
+      if (product.images && Array.isArray(product.images)) {
+        setImageUrls(product.images.join(', '));
+      }
+    } else if (isOpen && !product) {
+      console.log('Creating new product, resetting form');
       setFormData({
         name: '',
         desc: '',
@@ -72,135 +128,201 @@ export const ProductForm = ({
         tags: '',
         isActive: true,
       });
+      setImageUrls('');
     }
+    
     setSelectedFiles([]);
-    setImageUrls('');
     setErrors({});
   }, [product, isOpen]);
 
   const loadCategories = async () => {
     try {
+      console.log('Loading categories...');
       const response = await api.getCategories();
-      setCategories(response.data || response || []);
+      console.log('Categories response:', response);
+      const categoriesData = response.data || response || [];
+      setCategories(categoriesData);
+      console.log('Categories loaded:', categoriesData);
     } catch (error) {
       console.error('Failed to load categories:', error);
+      setErrors(prev => ({ ...prev, categories: 'Failed to load categories' }));
     }
   };
 
   const loadBranches = async () => {
     try {
+      console.log('Loading branches...');
       const response = await api.getBranches();
-      setBranches(response.data || response || []);
+      console.log('Branches response:', response);
+      const branchesData = response.data || response || [];
+      setBranches(branchesData);
+      console.log('Branches loaded:', branchesData);
     } catch (error) {
       console.error('Failed to load branches:', error);
+      setErrors(prev => ({ ...prev, branches: 'Failed to load branches' }));
     }
   };
 
-  // Fixed validation and form data handling in ProductForm.jsx
+  const validateForm = () => {
+    const newErrors = {};
+    console.log('Validating form with data:', formData);
 
-const validateForm = () => {
-  const newErrors = {};
-
-  if (!formData.name.trim()) {
-    newErrors.name = 'Product name is required';
-  }
-
-  if (!formData.desc.trim()) { // Backend requires description
-    newErrors.desc = 'Description is required';
-  }
-
-  if (!formData.sku.trim()) {
-    newErrors.sku = 'SKU is required';
-  }
-
-  if (!formData.regular_price || formData.regular_price <= 0) {
-    newErrors.regular_price = 'Valid price is required';
-  }
-
-  if (!formData.category) {
-    newErrors.category = 'Category is required';
-  }
-
-  // Backend requires subcategory
-  if (!formData.subcategory.trim()) {
-    newErrors.subcategory = 'Subcategory is required';
-  }
-
-  // Backend requires branch
-  if (!formData.branch) {
-    newErrors.branch = 'Branch is required';
-  }
-
-  if (!formData.stock || formData.stock < 0) {
-    newErrors.stock = 'Valid stock quantity is required';
-  }
-
-  setErrors(newErrors);
-  return Object.keys(newErrors).length === 0;
-};
-
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  
-  if (!validateForm()) {
-    return;
-  }
-
-  try {
-    const formDataToSend = new FormData();
-    
-    // Basic required fields
-    formDataToSend.append('name', formData.name.trim());
-    formDataToSend.append('desc', formData.desc.trim()); // Backend expects 'desc'
-    
-    // Price fields - backend builds price object from these
-    formDataToSend.append('regular_price', parseFloat(formData.regular_price));
-    if (formData.sale_price) {
-      formDataToSend.append('sale_price', parseFloat(formData.sale_price));
-    }
-    formDataToSend.append('usd_price', parseFloat(formData.usd_price || formData.regular_price));
-    formDataToSend.append('zwg_price', parseFloat(formData.zwg_price || (formData.regular_price * 50)));
-    
-    // Required fields
-    formDataToSend.append('category', formData.category);
-    formDataToSend.append('subcategory', formData.subcategory.trim()); // Required by backend
-    formDataToSend.append('branch', formData.branch); // Required by backend
-    formDataToSend.append('stock', parseInt(formData.stock));
-    formDataToSend.append('sku', formData.sku.trim());
-    
-    // Optional fields
-    if (formData.tags.trim()) {
-      formDataToSend.append('tags', formData.tags.trim());
-    }
-    formDataToSend.append('isActive', formData.isActive.toString());
-
-    // Add image files
-    selectedFiles.forEach(file => {
-      formDataToSend.append('images', file);
-    });
-
-    // Add image URLs if provided
-    if (imageUrls.trim()) {
-      formDataToSend.append('imageUrls', imageUrls.trim());
+    if (!formData.name || !formData.name.trim()) {
+      newErrors.name = 'Product name is required';
     }
 
-    // Debug: Log what we're sending
-    console.log('Sending product data:');
-    for (let [key, value] of formDataToSend.entries()) {
-      if (value instanceof File) {
-        console.log(`${key}: [File] ${value.name}`);
+    if (!formData.desc || !formData.desc.trim()) {
+      newErrors.desc = 'Description is required';
+    }
+
+    if (!formData.sku || !formData.sku.trim()) {
+      newErrors.sku = 'SKU is required';
+    }
+
+    if (!formData.regular_price || parseFloat(formData.regular_price) <= 0) {
+      newErrors.regular_price = 'Valid price is required';
+    }
+
+    if (!formData.category) {
+      newErrors.category = 'Category is required';
+    }
+
+    // Make subcategory optional for updates, required for creates
+    if (!product && (!formData.subcategory || !formData.subcategory.trim())) {
+      newErrors.subcategory = 'Subcategory is required';
+    }
+
+    // Make branch optional for now to avoid issues
+    // if (!formData.branch) {
+    //   newErrors.branch = 'Branch is required';
+    // }
+
+    if (!formData.stock || parseInt(formData.stock) < 0) {
+      newErrors.stock = 'Valid stock quantity is required';
+    }
+
+    console.log('Validation errors:', newErrors);
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    console.log('Form submitted');
+    console.log('Product being edited:', product);
+    console.log('Form data:', formData);
+    
+    if (!validateForm()) {
+      console.log('Validation failed, not submitting');
+      return;
+    }
+
+    console.log('Validation passed, preparing data...');
+
+    try {
+      // For updates, we might need to send JSON instead of FormData
+      if (product) {
+        console.log('Updating existing product...');
+        
+        // Prepare update data as JSON object first
+        const updateData = {
+          name: formData.name.trim(),
+          desc: formData.desc.trim(),
+          regular_price: parseFloat(formData.regular_price),
+          usd_price: parseFloat(formData.usd_price || formData.regular_price),
+          zwg_price: parseFloat(formData.zwg_price || (formData.regular_price * 50)),
+          category: formData.category,
+          stock: parseInt(formData.stock),
+          sku: formData.sku.trim(),
+          isActive: formData.isActive,
+        };
+
+        // Add optional fields
+        if (formData.sale_price) {
+          updateData.sale_price = parseFloat(formData.sale_price);
+        }
+        if (formData.subcategory && formData.subcategory.trim()) {
+          updateData.subcategory = formData.subcategory.trim();
+        }
+        if (formData.branch) {
+          updateData.branch = formData.branch;
+        }
+        if (formData.tags && formData.tags.trim()) {
+          updateData.tags = formData.tags.trim();
+        }
+
+        // Handle images
+        if (imageUrls && imageUrls.trim()) {
+          updateData.imageUrls = imageUrls.trim();
+        }
+
+        console.log('Update data being sent:', updateData);
+        await onSave(updateData, product.id || product._id);
       } else {
-        console.log(`${key}: ${value}`);
-      }
-    }
+        console.log('Creating new product...');
+        
+        // For new products, use FormData
+        const formDataToSend = new FormData();
+        
+        // Basic required fields
+        formDataToSend.append('name', formData.name.trim());
+        formDataToSend.append('desc', formData.desc.trim());
+        
+        // Price fields
+        formDataToSend.append('regular_price', parseFloat(formData.regular_price));
+        if (formData.sale_price) {
+          formDataToSend.append('sale_price', parseFloat(formData.sale_price));
+        }
+        formDataToSend.append('usd_price', parseFloat(formData.usd_price || formData.regular_price));
+        formDataToSend.append('zwg_price', parseFloat(formData.zwg_price || (formData.regular_price * 50)));
+        
+        // Required fields
+        formDataToSend.append('category', formData.category);
+        if (formData.subcategory && formData.subcategory.trim()) {
+          formDataToSend.append('subcategory', formData.subcategory.trim());
+        }
+        if (formData.branch) {
+          formDataToSend.append('branch', formData.branch);
+        }
+        formDataToSend.append('stock', parseInt(formData.stock));
+        formDataToSend.append('sku', formData.sku.trim());
+        
+        // Optional fields
+        if (formData.tags && formData.tags.trim()) {
+          formDataToSend.append('tags', formData.tags.trim());
+        }
+        formDataToSend.append('isActive', formData.isActive.toString());
 
-    await onSave(formDataToSend, product?.id || product?._id);
-    onClose();
-  } catch (error) {
-    console.error('Error saving product:', error);
-    setErrors({ submit: error.message });
-  }
-};
+        // Add image files
+        selectedFiles.forEach(file => {
+          formDataToSend.append('images', file);
+        });
+
+        // Add image URLs if provided
+        if (imageUrls && imageUrls.trim()) {
+          formDataToSend.append('imageUrls', imageUrls.trim());
+        }
+
+        console.log('Create FormData entries:');
+        for (let [key, value] of formDataToSend.entries()) {
+          if (value instanceof File) {
+            console.log(`${key}: [File] ${value.name}`);
+          } else {
+            console.log(`${key}: "${value}"`);
+          }
+        }
+
+        await onSave(formDataToSend, null);
+      }
+      
+      console.log('Save completed successfully');
+      onClose();
+    } catch (error) {
+      console.error('Error in handleSubmit:', error);
+      setErrors({ submit: error.message });
+    }
+  };
 
   const handleFileChange = (e) => {
     const files = Array.from(e.target.files);
@@ -223,23 +345,39 @@ const handleSubmit = async (e) => {
   };
 
   const handleInputChange = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    console.log(`Updating field "${field}" with value:`, value);
     
-    // Auto-calculate ZWG price when USD price changes
-    if (field === 'usd_price' || field === 'regular_price') {
-      const usdValue = parseFloat(value) || 0;
-      setFormData(prev => ({ 
-        ...prev, 
-        [field]: value,
-        zwg_price: (usdValue * 50).toString() // Auto-calculate with 1:50 rate
-      }));
-    } else {
-      setFormData(prev => ({ ...prev, [field]: value }));
-    }
+    setFormData(prev => {
+      const updated = { ...prev, [field]: value };
+      
+      // Auto-calculate ZWG price when USD price changes
+      if (field === 'usd_price' || field === 'regular_price') {
+        const usdValue = parseFloat(value) || 0;
+        updated.zwg_price = (usdValue * 50).toString();
+      }
+      
+      return updated;
+    });
     
     if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: undefined }));
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[field];
+        return newErrors;
+      });
     }
+  };
+
+  // Find category name by ID
+  const getCategoryName = (categoryId) => {
+    const category = categories.find(cat => (cat._id || cat.id) === categoryId);
+    return category ? category.name : categoryId;
+  };
+
+  // Find branch name by ID
+  const getBranchName = (branchId) => {
+    const branch = branches.find(br => (br._id || br.id) === branchId);
+    return branch ? branch.name : branchId;
   };
 
   return (
@@ -252,7 +390,19 @@ const handleSubmit = async (e) => {
       <form onSubmit={handleSubmit} className="space-y-6 max-h-[70vh] overflow-y-auto px-1">
         {errors.submit && (
           <div className="bg-red-50 text-red-700 p-3 rounded">
-            {errors.submit}
+            Error: {errors.submit}
+          </div>
+        )}
+
+        {/* Debug info */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="bg-gray-50 p-3 rounded text-xs">
+            <strong>Debug:</strong> Categories: {categories.length}, Branches: {branches.length}
+            {product && (
+              <div>
+                Editing: {product.name} | Category: {getCategoryName(formData.category)} | Branch: {getBranchName(formData.branch)}
+              </div>
+            )}
           </div>
         )}
 
@@ -279,9 +429,11 @@ const handleSubmit = async (e) => {
 
         <Textarea
           label="Description"
+          required
           rows={3}
           value={formData.desc}
           onChange={(e) => handleInputChange('desc', e.target.value)}
+          error={errors.desc}
           placeholder="Enter product description"
         />
 
@@ -347,6 +499,7 @@ const handleSubmit = async (e) => {
             label="Subcategory"
             value={formData.subcategory}
             onChange={(e) => handleInputChange('subcategory', e.target.value)}
+            error={errors.subcategory}
             placeholder="e.g., Excavators"
           />
 
@@ -354,8 +507,9 @@ const handleSubmit = async (e) => {
             label="Branch"
             value={formData.branch}
             onChange={(e) => handleInputChange('branch', e.target.value)}
+            error={errors.branch}
           >
-            <option value="">All Branches</option>
+            <option value="">Select Branch</option>
             {branches.map(branch => (
               <option key={branch._id || branch.id} value={branch._id || branch.id}>
                 {branch.name}
@@ -415,7 +569,7 @@ const handleSubmit = async (e) => {
           {/* Image URLs Input */}
           <div className="mt-3">
             <Input
-              label="Or enter image URLs (comma separated)"
+              label="Image URLs (comma separated)"
               value={imageUrls}
               onChange={(e) => setImageUrls(e.target.value)}
               placeholder="https://example.com/image1.jpg, https://example.com/image2.jpg"
