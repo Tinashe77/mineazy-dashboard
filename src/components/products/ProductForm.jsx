@@ -96,95 +96,111 @@ export const ProductForm = ({
     }
   };
 
-  const validateForm = () => {
-    const newErrors = {};
+  // Fixed validation and form data handling in ProductForm.jsx
 
-    if (!formData.name.trim()) {
-      newErrors.name = 'Product name is required';
-    }
+const validateForm = () => {
+  const newErrors = {};
 
-    if (!formData.sku.trim()) {
-      newErrors.sku = 'SKU is required';
-    }
+  if (!formData.name.trim()) {
+    newErrors.name = 'Product name is required';
+  }
 
-    if (!formData.regular_price || formData.regular_price <= 0) {
-      newErrors.regular_price = 'Valid price is required';
-    }
+  if (!formData.desc.trim()) { // Backend requires description
+    newErrors.desc = 'Description is required';
+  }
 
-    if (!formData.category) {
-      newErrors.category = 'Category is required';
-    }
+  if (!formData.sku.trim()) {
+    newErrors.sku = 'SKU is required';
+  }
 
-    if (!formData.stock || formData.stock < 0) {
-      newErrors.stock = 'Valid stock quantity is required';
-    }
+  if (!formData.regular_price || formData.regular_price <= 0) {
+    newErrors.regular_price = 'Valid price is required';
+  }
 
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
+  if (!formData.category) {
+    newErrors.category = 'Category is required';
+  }
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  // Backend requires subcategory
+  if (!formData.subcategory.trim()) {
+    newErrors.subcategory = 'Subcategory is required';
+  }
+
+  // Backend requires branch
+  if (!formData.branch) {
+    newErrors.branch = 'Branch is required';
+  }
+
+  if (!formData.stock || formData.stock < 0) {
+    newErrors.stock = 'Valid stock quantity is required';
+  }
+
+  setErrors(newErrors);
+  return Object.keys(newErrors).length === 0;
+};
+
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  
+  if (!validateForm()) {
+    return;
+  }
+
+  try {
+    const formDataToSend = new FormData();
     
-    if (!validateForm()) {
-      return;
+    // Basic required fields
+    formDataToSend.append('name', formData.name.trim());
+    formDataToSend.append('desc', formData.desc.trim()); // Backend expects 'desc'
+    
+    // Price fields - backend builds price object from these
+    formDataToSend.append('regular_price', parseFloat(formData.regular_price));
+    if (formData.sale_price) {
+      formDataToSend.append('sale_price', parseFloat(formData.sale_price));
+    }
+    formDataToSend.append('usd_price', parseFloat(formData.usd_price || formData.regular_price));
+    formDataToSend.append('zwg_price', parseFloat(formData.zwg_price || (formData.regular_price * 50)));
+    
+    // Required fields
+    formDataToSend.append('category', formData.category);
+    formDataToSend.append('subcategory', formData.subcategory.trim()); // Required by backend
+    formDataToSend.append('branch', formData.branch); // Required by backend
+    formDataToSend.append('stock', parseInt(formData.stock));
+    formDataToSend.append('sku', formData.sku.trim());
+    
+    // Optional fields
+    if (formData.tags.trim()) {
+      formDataToSend.append('tags', formData.tags.trim());
+    }
+    formDataToSend.append('isActive', formData.isActive.toString());
+
+    // Add image files
+    selectedFiles.forEach(file => {
+      formDataToSend.append('images', file);
+    });
+
+    // Add image URLs if provided
+    if (imageUrls.trim()) {
+      formDataToSend.append('imageUrls', imageUrls.trim());
     }
 
-    try {
-      const formDataToSend = new FormData();
-      
-      // Add all fields with correct names as per API
-      formDataToSend.append('name', formData.name);
-      formDataToSend.append('desc', formData.desc); // Using desc instead of description
-      formDataToSend.append('regular_price', formData.regular_price);
-      
-      if (formData.sale_price) {
-        formDataToSend.append('sale_price', formData.sale_price);
+    // Debug: Log what we're sending
+    console.log('Sending product data:');
+    for (let [key, value] of formDataToSend.entries()) {
+      if (value instanceof File) {
+        console.log(`${key}: [File] ${value.name}`);
+      } else {
+        console.log(`${key}: ${value}`);
       }
-      
-      // Add both USD and ZWG prices
-      formDataToSend.append('usd_price', formData.usd_price || formData.regular_price);
-      formDataToSend.append('zwg_price', formData.zwg_price || (formData.regular_price * 50)); // Default conversion
-      
-      formDataToSend.append('category', formData.category);
-      formDataToSend.append('subcategory', formData.subcategory);
-      
-      if (formData.branch) {
-        formDataToSend.append('branch', formData.branch);
-      }
-      
-      formDataToSend.append('stock', formData.stock);
-      formDataToSend.append('sku', formData.sku);
-      formDataToSend.append('tags', formData.tags);
-      formDataToSend.append('isActive', formData.isActive.toString());
-
-      // Add image files
-      selectedFiles.forEach(file => {
-        formDataToSend.append('images', file);
-      });
-
-      // Add image URLs if provided
-      if (imageUrls.trim()) {
-        formDataToSend.append('imageUrls', imageUrls);
-      }
-
-      // Debug: Log what we're sending
-      console.log('Sending product data:');
-      for (let [key, value] of formDataToSend.entries()) {
-        if (value instanceof File) {
-          console.log(`${key}: [File] ${value.name}`);
-        } else {
-          console.log(`${key}: ${value}`);
-        }
-      }
-
-      await onSave(formDataToSend, product?.id || product?._id);
-      onClose();
-    } catch (error) {
-      console.error('Error saving product:', error);
-      setErrors({ submit: error.message });
     }
-  };
+
+    await onSave(formDataToSend, product?.id || product?._id);
+    onClose();
+  } catch (error) {
+    console.error('Error saving product:', error);
+    setErrors({ submit: error.message });
+  }
+};
 
   const handleFileChange = (e) => {
     const files = Array.from(e.target.files);
