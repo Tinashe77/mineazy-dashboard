@@ -466,6 +466,110 @@ async updateProduct(id, data) {
     return this.request(`/admin/users/${id}`, { method: 'DELETE' });
   }
 
+  // User role management
+  async updateUserRole(userId, role) {
+    return this.request(`/admin/users/${userId}/role`, {
+      method: 'PATCH',
+      body: JSON.stringify({ role }),
+    });
+  }
+
+  async getUserRoles(userId) {
+    return this.request(`/admin/users/${userId}/roles`);
+  }
+
+  async assignUserRole(userId, roleId) {
+    return this.request(`/admin/users/${userId}/roles`, {
+      method: 'POST',
+      body: JSON.stringify({ roleId }),
+    });
+  }
+
+  async removeUserRole(userId, roleId) {
+    return this.request(`/admin/users/${userId}/roles/${roleId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // User permission management
+  async getUserPermissions(userId) {
+    return this.request(`/admin/users/${userId}/permissions`);
+  }
+
+  async grantUserPermission(userId, permissionId) {
+    return this.request(`/admin/users/${userId}/permissions`, {
+      method: 'POST',
+      body: JSON.stringify({ permissionId }),
+    });
+  }
+
+  async revokeUserPermission(userId, permissionId) {
+    return this.request(`/admin/users/${userId}/permissions/${permissionId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Shop Manager management
+  async getShopManagers() {
+    return this.request('/admin/shop-managers');
+  }
+
+  async createShopManager(data) {
+    return this.request('/admin/shop-managers', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateShopManager(id, data) {
+    return this.request(`/admin/shop-managers/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteShopManager(id) {
+    return this.request(`/admin/shop-managers/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Branch management
+  async assignBranchManager(branchId, managerId) {
+    return this.request(`/admin/branches/${branchId}/manager/${managerId}`, {
+      method: 'POST',
+    });
+  }
+
+  async removeBranchManager(branchId) {
+    return this.request(`/admin/branches/${branchId}/manager`, {
+      method: 'DELETE',
+    });
+  }
+
+  // System configuration
+  async getSystemConfig() {
+    return this.request('/admin/system/config');
+  }
+
+  async updateSystemConfig(data) {
+    return this.request('/admin/system/config', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // System health and maintenance
+  async getSystemHealth() {
+    return this.request('/admin/system/health');
+  }
+
+  async clearCache() {
+    return this.request('/admin/system/cache', {
+      method: 'POST',
+    });
+  }
+
   // Health check
   async getHealthCheck() {
     return this.request('/health');
