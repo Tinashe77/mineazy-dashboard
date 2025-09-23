@@ -9,21 +9,23 @@ import {
   RefundModal,
   TransactionAnalytics 
 } from '../components/transactions';
-import { Button, Alert, Badge } from '../components/ui';
+import { Button, Alert, Badge, Card, CardContent } from '../components/ui';
 import { useAuth } from '../contexts/AuthContext';
 import { formatCurrency } from '../utils';
 import { 
-  Plus, 
-  Download, 
   RefreshCw, 
   BarChart3,
   CreditCard,
-  DollarSign 
+  DollarSign,
+  CheckCircle,
+  Clock,
+  XCircle,
+  RotateCcw
 } from 'lucide-react';
 import api from '../services/api';
 
 export const PaymentsPage = () => {
-  const { isAuthenticated, user, userRole } = useAuth();
+  const { userRole } = useAuth();
   const [transactions, setTransactions] = useState([]);
   const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -38,7 +40,7 @@ export const PaymentsPage = () => {
   const [selectedTransaction, setSelectedTransaction] = useState(null);
   
   // View state
-  const [viewMode, setViewMode] = useState('transactions'); // 'transactions' or 'analytics'
+  const [viewMode, setViewMode] = useState('transactions');
   
   // Filters and pagination
   const [filters, setFilters] = useState({
@@ -56,7 +58,16 @@ export const PaymentsPage = () => {
     totalItems: 0,
   });
 
-  // Debounced filter function
+  // Quick stats
+  const [quickStats, setQuickStats] = useState({
+    totalAmount: 0,
+    completedCount: 0,
+    pendingCount: 0,
+    failedCount: 0,
+    refundedCount: 0,
+    successRate: 0
+  });
+
   const [filterTimeout, setFilterTimeout] = useState(null);
 
   const loadTransactions = useCallback(async (newFilters = null, page = null) => {
@@ -67,138 +78,105 @@ export const PaymentsPage = () => {
       const currentFilters = newFilters || filters;
       const currentPage = page || pagination.currentPage;
       
-      console.log('Loading transactions with filters:', currentFilters);
-      
-      // Build API parameters
       const params = {
         page: currentPage,
         limit: 20,
       };
 
-      // Add filters to params, only if they have values
+      // Add filters to params
       if (currentFilters.search && currentFilters.search.trim()) {
         params.search = currentFilters.search.trim();
       }
+      if (currentFilters.status) params.status = currentFilters.status;
+      if (currentFilters.method) params.paymentMethod = currentFilters.method;
+      if (currentFilters.minAmount) params.minAmount = parseFloat(currentFilters.minAmount);
+      if (currentFilters.maxAmount) params.maxAmount = parseFloat(currentFilters.maxAmount);
+      if (currentFilters.startDate) params.startDate = currentFilters.startDate;
+      if (currentFilters.endDate) params.endDate = currentFilters.endDate;
       
-      if (currentFilters.status) {
-        params.status = currentFilters.status;
-      }
-      
-      if (currentFilters.method) {
-        params.method = currentFilters.method;
-      }
-      
-      if (currentFilters.minAmount && currentFilters.minAmount !== '') {
-        params.minAmount = parseFloat(currentFilters.minAmount);
-      }
-      
-      if (currentFilters.maxAmount && currentFilters.maxAmount !== '') {
-        params.maxAmount = parseFloat(currentFilters.maxAmount);
-      }
-      
-      if (currentFilters.startDate) {
-        params.startDate = currentFilters.startDate;
-      }
-      
-      if (currentFilters.endDate) {
-        params.endDate = currentFilters.endDate;
-      }
-
-      console.log('API params being sent:', params);
-      
-      const response = await api.getTransactions(params);
-      console.log('Transactions API response:', response);
+      // Use appropriate endpoint based on user role
+      const response = userRole === 'customer' 
+        ? await api.getUserTransactions(params)
+        : await api.getTransactions(params);
       
       let transactionsData = [];
       let paginationData = {};
       
       if (Array.isArray(response)) {
         transactionsData = response;
-        paginationData = {
-          currentPage: 1,
-          totalPages: 1,
-          totalItems: response.length,
-        };
+        paginationData = { currentPage: 1, totalPages: 1, totalItems: response.length };
+      } else if (response.data && Array.isArray(response.data.transactions)) {
+        transactionsData = response.data.transactions;
+        paginationData = response.data.pagination || {};
       } else if (response.data && Array.isArray(response.data)) {
         transactionsData = response.data;
-        paginationData = {
-          currentPage: response.page || currentPage,
-          totalPages: response.totalPages || 1,
-          totalItems: response.total || response.totalItems || response.data.length,
-        };
-      } else if (response.transactions && Array.isArray(response.transactions)) {
-        transactionsData = response.transactions;
-        paginationData = {
-          currentPage: response.page || currentPage,
-          totalPages: response.totalPages || 1,
-          totalItems: response.total || response.totalItems || response.transactions.length,
-        };
+        paginationData = { currentPage: response.page || 1, totalPages: response.totalPages || 1, totalItems: response.total || response.data.length };
       }
-      
-      console.log('Processed transactions data:', transactionsData.length);
-      console.log('Pagination data:', paginationData);
       
       setTransactions(transactionsData);
       setPagination(paginationData);
+      calculateQuickStats(transactionsData);
       
     } catch (error) {
       console.error('Failed to load transactions:', error);
       setError(`Failed to load transactions: ${error.message}`);
-      {process.env.NODE_ENV === 'development' && (
-  <div className="bg-yellow-50 p-3 rounded text-xs">
-    <strong>Debug Info:</strong><br/>
-    User Role: {userRole} | 
-    Is Admin: {['admin', 'shop_manager', 'super_admin'].includes(userRole)} | 
-    API Base URL: {api.baseURL} | 
-    Expected Endpoint: {['admin', 'shop_manager', 'super_admin'].includes(userRole) ? '/transactions' : '/transactions/my-transactions'}
-  </div>
-)}
     } finally {
       setLoading(false);
     }
-  }, [filters, pagination.currentPage]);
+  }, [filters, pagination.currentPage, userRole]);
 
-  const loadAnalytics = useCallback(async (params = {}) => {
+  const calculateQuickStats = useCallback((transactionsData) => {
+    const stats = {
+      totalAmount: 0,
+      completedCount: 0,
+      pendingCount: 0,
+      failedCount: 0,
+      refundedCount: 0,
+      successRate: 0
+    };
+
+    transactionsData.forEach(transaction => {
+      const amount = transaction.amount || 0;
+      stats.totalAmount += amount;
+      
+      const status = transaction.status || 'pending';
+      if (status === 'completed') stats.completedCount++;
+      else if (status === 'pending') stats.pendingCount++;
+      else if (status === 'failed') stats.failedCount++;
+      else if (status === 'refunded') stats.refundedCount++;
+    });
+
+    const totalProcessed = stats.completedCount + stats.failedCount;
+    stats.successRate = totalProcessed > 0 ? Math.round((stats.completedCount / totalProcessed) * 100) : 0;
+
+    setQuickStats(stats);
+  }, []);
+
+  const loadAnalytics = useCallback(async (period = 'month') => {
     try {
       setAnalyticsLoading(true);
+      const params = { period };
       const response = await api.getTransactionAnalytics(params);
-      console.log('Analytics response:', response);
-      
-      // Handle backend response structure
-      if (response.success && response.data) {
-        setAnalytics(response.data);
-      } else {
-        console.warn('Unexpected analytics response structure:', response);
-        setAnalytics(null);
-      }
+      setAnalytics(response.data || response);
     } catch (error) {
       console.error('Failed to load analytics:', error);
-      // Don't show error for analytics, just log it
       setAnalytics(null);
     } finally {
       setAnalyticsLoading(false);
     }
   }, []);
 
-  // Load data on component mount
   useEffect(() => {
     loadTransactions();
     loadAnalytics();
   }, []);
 
-  // Handle filter changes with debouncing
   const handleFiltersChange = useCallback((newFilters) => {
-    console.log('Filters changed:', newFilters);
     setFilters(newFilters);
     
-    // Clear existing timeout
-    if (filterTimeout) {
-      clearTimeout(filterTimeout);
-    }
+    if (filterTimeout) clearTimeout(filterTimeout);
     
-    // Set new timeout for debounced API call
     const timeout = setTimeout(() => {
-      console.log('Applying filters after debounce:', newFilters);
       setPagination(prev => ({ ...prev, currentPage: 1 }));
       loadTransactions(newFilters, 1);
     }, 500);
@@ -206,9 +184,7 @@ export const PaymentsPage = () => {
     setFilterTimeout(timeout);
   }, [filterTimeout, loadTransactions]);
 
-  // Handle clear filters
   const handleClearFilters = useCallback(() => {
-    console.log('Clearing filters');
     const clearedFilters = {
       search: '',
       status: '',
@@ -223,9 +199,7 @@ export const PaymentsPage = () => {
     loadTransactions(clearedFilters, 1);
   }, [loadTransactions]);
 
-  // Handle page changes
   const handlePageChange = useCallback((newPage) => {
-    console.log('Page changed to:', newPage);
     setPagination(prev => ({ ...prev, currentPage: newPage }));
     loadTransactions(null, newPage);
   }, [loadTransactions]);
@@ -259,9 +233,7 @@ export const PaymentsPage = () => {
   };
 
   const handleCancelTransaction = async (transactionId) => {
-    if (!confirm('Are you sure you want to cancel this transaction?')) {
-      return;
-    }
+    if (!confirm('Are you sure you want to cancel this transaction?')) return;
 
     try {
       setError(null);
@@ -305,29 +277,38 @@ export const PaymentsPage = () => {
     loadAnalytics(period);
   };
 
-  // Calculate quick stats from current transactions
-  const quickStats = React.useMemo(() => {
-    const stats = {
-      totalAmount: 0,
-      completedCount: 0,
-      pendingCount: 0,
-      failedCount: 0,
-    };
-
-    transactions.forEach(transaction => {
-      const amount = transaction.amount || transaction.total || transaction.totalAmount || 0;
-      stats.totalAmount += amount;
-      
-      const status = transaction.status || 'pending';
-      if (status === 'completed') stats.completedCount++;
-      else if (status === 'pending') stats.pendingCount++;
-      else if (status === 'failed') stats.failedCount++;
-    });
-
-    return stats;
-  }, [transactions]);
-
   const canManageTransactions = ['admin', 'shop_manager', 'super_admin'].includes(userRole);
+
+  const statCards = [
+    {
+      title: 'Total Amount',
+      value: formatCurrency(quickStats.totalAmount),
+      icon: DollarSign,
+      color: 'text-green-600',
+      bgColor: 'bg-green-100'
+    },
+    {
+      title: 'Completed',
+      value: quickStats.completedCount,
+      icon: CheckCircle,
+      color: 'text-green-600',
+      bgColor: 'bg-green-100'
+    },
+    {
+      title: 'Pending',
+      value: quickStats.pendingCount,
+      icon: Clock,
+      color: 'text-yellow-600',
+      bgColor: 'bg-yellow-100'
+    },
+    {
+      title: 'Failed',
+      value: quickStats.failedCount,
+      icon: XCircle,
+      color: 'text-red-600',
+      bgColor: 'bg-red-100'
+    }
+  ];
 
   return (
     <div className="space-y-6">
@@ -376,59 +357,44 @@ export const PaymentsPage = () => {
         </Alert>
       )}
 
-      {/* Quick Stats Bar */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-lg shadow">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Total Amount</p>
-              <p className="text-lg font-semibold text-gray-900">
-                {formatCurrency(quickStats.totalAmount)}
-              </p>
-            </div>
-            <DollarSign className="h-8 w-8 text-green-500" />
-          </div>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Completed</p>
-              <p className="text-lg font-semibold text-green-600">
-                {quickStats.completedCount}
-              </p>
-            </div>
-            <Badge variant="success" className="text-xs">
-              Success
-            </Badge>
-          </div>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Pending</p>
-              <p className="text-lg font-semibold text-yellow-600">
-                {quickStats.pendingCount}
-              </p>
-            </div>
-            <Badge variant="warning" className="text-xs">
-              Pending
-            </Badge>
-          </div>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Failed</p>
-              <p className="text-lg font-semibold text-red-600">
-                {quickStats.failedCount}
-              </p>
-            </div>
-            <Badge variant="error" className="text-xs">
-              Failed
-            </Badge>
-          </div>
-        </div>
+      {/* Quick Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        {statCards.map((stat, index) => (
+          <Card key={index}>
+            <CardContent className="p-6">
+              <div className="flex items-center">
+                <div className={`p-3 rounded-md ${stat.bgColor}`}>
+                  <stat.icon className={`h-6 w-6 ${stat.color}`} />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">{stat.title}</p>
+                  <p className="text-2xl font-semibold text-gray-900">{stat.value}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
+
+      {/* Success Rate Card */}
+      <Card>
+        <CardContent className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-medium text-gray-900">Success Rate</h3>
+              <p className="text-3xl font-bold text-green-600">{quickStats.successRate}%</p>
+              <p className="text-sm text-gray-500">
+                {quickStats.completedCount} completed out of {quickStats.completedCount + quickStats.failedCount} processed
+              </p>
+            </div>
+            <div className="text-right">
+              <Badge variant={quickStats.successRate >= 95 ? 'success' : quickStats.successRate >= 80 ? 'warning' : 'error'}>
+                {quickStats.successRate >= 95 ? 'Excellent' : quickStats.successRate >= 80 ? 'Good' : 'Needs Attention'}
+              </Badge>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Main Content */}
       {viewMode === 'analytics' ? (
@@ -516,17 +482,6 @@ export const PaymentsPage = () => {
             onProcessRefund={handleProcessRefund}
           />
         </>
-      )}
-
-      {/* Debug info */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="bg-gray-50 p-3 rounded text-xs">
-          <strong>Debug:</strong> 
-          Transactions: {transactions.length} | 
-          View: {viewMode} | 
-          Filters: {JSON.stringify(filters)} | 
-          Page: {pagination.currentPage}/{pagination.totalPages}
-        </div>
       )}
     </div>
   );
