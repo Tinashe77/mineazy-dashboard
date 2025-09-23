@@ -32,7 +32,7 @@ export const UsersPage = () => {
     try {
       setLoading(true);
       const response = await api.getUsers({ limit: 50 });
-      setUsers(response.data || []);
+      setUsers(response.users || []);
     } catch (error) {
       setError(error.message);
     } finally {
@@ -189,9 +189,17 @@ export const UsersPage = () => {
                   </div>
                 </TableCell>
                 <TableCell>
-                  <Badge variant="info">
-                    {user.role?.replace('_', ' ').toUpperCase()}
-                  </Badge>
+                  <div className="flex flex-wrap gap-1">
+                    {user.roles && user.roles.length > 0 ? (
+                      user.roles.map(role => (
+                        <Badge key={role._id || role.name} variant="info">
+                          {role.name?.replace('_', ' ').toUpperCase()}
+                        </Badge>
+                      ))
+                    ) : (
+                      <Badge variant="secondary">NO ROLE</Badge>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell>
                   {user.branch || 'All Branches'}
