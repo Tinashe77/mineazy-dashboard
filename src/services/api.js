@@ -547,10 +547,13 @@ async getTransactions(params = {}) {
     });
   }
 
-  async updateTransactionStatus(id, status, notes) {
-    return this.request(`/transactions/${id}/status`, {
+  async updateOrderStatus(id, status, notes = '') {
+    if (!id || !status) {
+      throw new APIError('Order ID and status are required', 400, null);
+    }
+    return this.request(`/orders/${id}/status`, {
       method: 'PATCH',
-      body: JSON.stringify({ status, notes }),
+      body: JSON.stringify({ orderStatus: status, notes }),
     });
   }
 
