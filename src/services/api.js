@@ -512,167 +512,158 @@ async deleteCategory(id) {
 }
 // Transaction endpoints
 async getTransactions(params = {}) {
-  const cleanParams = Object.fromEntries(
-    Object.entries(params).filter(([_, value]) => value !== '' && value != null)
-  );
-  
-  const queryString = new URLSearchParams(cleanParams).toString();
-  const endpoint = queryString ? `/transactions?${queryString}` : '/transactions';
-  
-  return this.request(endpoint);
-}
-
-async getMyTransactions(params = {}) {
-  const cleanParams = Object.fromEntries(
-    Object.entries(params).filter(([_, value]) => value !== '' && value != null)
-  );
-  
-  const queryString = new URLSearchParams(cleanParams).toString();
-  const endpoint = queryString ? `/transactions/my-transactions?${queryString}` : '/transactions/my-transactions';
-  
-  return this.request(endpoint);
-}
-
-async getTransactionById(id) {
-  if (!id) throw new APIError('Transaction ID is required', 400, null);
-  return this.request(`/transactions/${id}`);
-}
-
-async createTransaction(data) {
-  if (!data || !data.orderId || !data.amount) {
-    throw new APIError('Order ID and amount are required', 400, null);
-  }
-  return this.request('/transactions', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  });
-}
-
-async processTransaction(id, paymentDetails) {
-  if (!id) throw new APIError('Transaction ID is required', 400, null);
-  return this.request(`/transactions/${id}/process`, {
-    method: 'POST',
-    body: JSON.stringify(paymentDetails),
-  });
-}
-
-async verifyTransaction(id, verificationData) {
-  if (!id) throw new APIError('Transaction ID is required', 400, null);
-  return this.request(`/transactions/${id}/verify`, {
-    method: 'POST',
-    body: JSON.stringify(verificationData),
-  });
-}
-
-async cancelTransaction(id, reason) {
-  if (!id) throw new APIError('Transaction ID is required', 400, null);
-  return this.request(`/transactions/${id}/cancel`, {
-    method: 'POST',
-    body: JSON.stringify({ reason }),
-  });
-}
-
-async updateTransactionStatus(id, status, notes = '') {
-  if (!id || !status) {
-    throw new APIError('Transaction ID and status are required', 400, null);
-  }
-  return this.request(`/transactions/${id}/status`, {
-    method: 'PATCH',
-    body: JSON.stringify({ status, notes }),
-  });
-}
-
-async refundTransaction(id, data) {
-  if (!id) throw new APIError('Transaction ID is required', 400, null);
-  return this.request(`/transactions/${id}/refund`, {
-    method: 'POST',
-    body: JSON.stringify(data),
-  });
-}
-
-async getTransactionAnalytics(period = 'month') {
-  return this.request(`/transactions/analytics/overview?period=${period}`);
-}
-
-async getTransactionsByDateRange(startDate, endDate, params = {}) {
-  const cleanParams = {
-    startDate,
-    endDate,
-    ...Object.fromEntries(
-      Object.entries(params).filter(([_, value]) => value !== '' && value != null)
-    )
-  };
-  
-  const queryString = new URLSearchParams(cleanParams).toString();
-  return this.request(`/transactions/analytics/by-date?${queryString}`);
-}
-
-async getTransactionsByPaymentMethod(method, params = {}) {
-  const cleanParams = {
-    method,
-    ...Object.fromEntries(
-      Object.entries(params).filter(([_, value]) => value !== '' && value != null)
-    )
-  };
-  
-  const queryString = new URLSearchParams(cleanParams).toString();
-  return this.request(`/transactions/analytics/by-method?${queryString}`);
-}
-
-async downloadTransactionInvoice(id) {
-  if (!id) throw new APIError('Transaction ID is required', 400, null);
-  
-  const url = `${this.baseURL}/transactions/${id}/invoice`;
-  const token = this.getAuthToken();
-  
-  const config = {
-    credentials: 'include',
-    headers: {},
-  };
-
-  if (token) {
-    config.headers['Authorization'] = `Bearer ${token}`;
-  }
-
-  try {
-    const response = await fetch(url, config);
+    const searchParams = new URLSearchParams();
     
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new APIError(errorData.message || 'Failed to download invoice', response.status, errorData);
-    }
-    
-    // Get filename from response headers
-    const contentDisposition = response.headers.get('content-disposition');
-    let filename = `Invoice-${id}.pdf`;
-    
-    if (contentDisposition) {
-      const filenameMatch = contentDisposition.match(/filename="(.+)"/);
-      if (filenameMatch) {
-        filename = filenameMatch[1];
+    Object.keys(params).forEach(key => {
+      if (params[key] !== undefined && params[key] !== null && params[key] !== '') {
+        searchParams.append(key, params[key]);
       }
-    }
+    });
+
+    const endpoint = `/transactions${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+    return this.request(endpoint);
+  }
+
+  async getUserTransactions(params = {}) {
+    const searchParams = new URLSearchParams();
     
-    // Create blob and download
-    const blob = await response.blob();
-    const downloadUrl = URL.createObjectURL(blob);
-    
-    const a = document.createElement('a');
-    a.href = downloadUrl;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(downloadUrl);
-    
-    return { success: true, filename };
-  } catch (error) {
-    if (error instanceof APIError) {
+    Object.keys(params).forEach(key => {
+      if (params[key] !== undefined && params[key] !== null && params[key] !== '') {
+        searchParams.append(key, params[key]);
+      }
+    });
+
+    const endpoint = `/transactions/my-transactions${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+    return this.request(endpoint);
+  }
+
+  async getTransactionById(id) {
+    return this.request(`/transactions/${id}`);
+  }
+
+  async createTransaction(transactionData) {
+    return this.request('/transactions', {
+      method: 'POST',
+      body: JSON.stringify(transactionData),
+    });
+  }
+
+  async updateTransactionStatus(id, status, notes) {
+    return this.request(`/transactions/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status, notes }),
+    });
+  }
+
+  async cancelTransaction(id, reason) {
+    return this.request(`/transactions/${id}/cancel`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    });
+  }
+
+  async refundTransaction(id, refundData) {
+    return this.request(`/transactions/${id}/refund`, {
+      method: 'POST',
+      body: JSON.stringify(refundData),
+    });
+  }
+
+  async processTransaction(id, paymentDetails) {
+    return this.request(`/transactions/${id}/process`, {
+      method: 'POST',
+      body: JSON.stringify(paymentDetails),
+    });
+  }
+
+  async verifyTransaction(id) {
+    return this.request(`/transactions/${id}/verify`, {
+      method: 'POST',
+    });
+  }
+
+  async downloadTransactionInvoice(id) {
+    try {
+      const response = await fetch(`${this.baseURL}/transactions/${id}/invoice`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('authToken') || sessionStorage.getItem('authToken')}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to download invoice');
+      }
+
+      // Get filename from response headers
+      const contentDisposition = response.headers.get('content-disposition');
+      let filename = 'invoice.pdf';
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+        if (filenameMatch) {
+          filename = filenameMatch[1];
+        }
+      }
+
+      // Create blob and download
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+
+      return { success: true, filename };
+    } catch (error) {
+      console.error('Failed to download invoice:', error);
       throw error;
     }
-    throw new APIError('Failed to download invoice', 0, null);
   }
-}
+
+  // Analytics methods
+  async getTransactionAnalytics(params = {}) {
+    const searchParams = new URLSearchParams();
+    
+    Object.keys(params).forEach(key => {
+      if (params[key] !== undefined && params[key] !== null && params[key] !== '') {
+        searchParams.append(key, params[key]);
+      }
+    });
+
+    const endpoint = `/transactions/analytics/overview${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+    return this.request(endpoint);
+  }
+
+  async getTransactionsByDateRange(params = {}) {
+    const searchParams = new URLSearchParams();
+    
+    Object.keys(params).forEach(key => {
+      if (params[key] !== undefined && params[key] !== null && params[key] !== '') {
+        searchParams.append(key, params[key]);
+      }
+    });
+
+    const endpoint = `/transactions/analytics/by-date${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+    return this.request(endpoint);
+  }
+
+  async getTransactionsByPaymentMethod(params = {}) {
+    const searchParams = new URLSearchParams();
+    
+    Object.keys(params).forEach(key => {
+      if (params[key] !== undefined && params[key] !== null && params[key] !== '') {
+        searchParams.append(key, params[key]);
+      }
+    });
+
+    const endpoint = `/transactions/analytics/by-method${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+    return this.request(endpoint);
+  }
+
 
 }
 
