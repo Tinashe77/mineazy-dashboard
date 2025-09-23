@@ -389,7 +389,7 @@ async updateProduct(id, data) {
     }
     return this.request(`/orders/${id}/status`, {
       method: 'PATCH',
-      body: JSON.stringify({ orderStatus: status, notes }),
+      body: JSON.stringify({ status, notes }),
     });
   }
 
@@ -453,16 +453,99 @@ async updateProduct(id, data) {
     });
   }
 
-  async updateUserRole(userId, role) {
-    return this.request(`/admin/users/${userId}/role`, {
+  async updateUser(id, data) {
+    if (!id) throw new APIError('User ID is required', 400, null);
+    return this.request(`/admin/users/${id}`, {
       method: 'PUT',
-      body: JSON.stringify({ role }),
+      body: JSON.stringify(data),
     });
   }
 
   async deleteUser(id) {
     if (!id) throw new APIError('User ID is required', 400, null);
     return this.request(`/admin/users/${id}`, { method: 'DELETE' });
+  }
+
+  // Reports endpoints
+  async getReports(params = {}) {
+    const queryString = new URLSearchParams(params).toString();
+    return this.request(`/reports?${queryString}`);
+  }
+
+  async getReportById(id) {
+    return this.request(`/reports/${id}`);
+  }
+
+  async generateReport(data) {
+    return this.request('/reports/generate', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async generateSpecificReport(reportType, data) {
+    return this.request(`/reports/${reportType}`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteReport(id) {
+    return this.request(`/reports/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async exportReportAsCsv(id) {
+    const url = `${this.baseURL}/reports/${id}/export/csv`;
+    const token = this.getAuthToken();
+
+    try {
+      const response = await fetch(url, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new APIError(errorData.message || 'Failed to export report', response.status, errorData);
+      }
+
+      const blob = await response.blob();
+      const contentDisposition = response.headers.get('content-disposition');
+      let filename = `report-${id}.csv`;
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+        if (filenameMatch.length > 1) {
+          filename = filenameMatch[1];
+        }
+      }
+
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(downloadUrl);
+
+    } catch (error) {
+       console.error('CSV Export Error:', error);
+       throw error;
+    }
+  }
+
+  async scheduleReport(id, scheduleData) {
+    return this.request(`/reports/${id}/schedule`, {
+      method: 'POST',
+      body: JSON.stringify(scheduleData),
+    });
+  }
+
+  async unscheduleReport(id) {
+    return this.request(`/reports/${id}/schedule`, {
+      method: 'DELETE',
+    });
   }
 
   // Health check
@@ -547,13 +630,10 @@ async getTransactions(params = {}) {
     });
   }
 
-  async updateOrderStatus(id, status, notes = '') {
-    if (!id || !status) {
-      throw new APIError('Order ID and status are required', 400, null);
-    }
-    return this.request(`/orders/${id}/status`, {
+  async updateTransactionStatus(id, status, notes) {
+    return this.request(`/transactions/${id}/status`, {
       method: 'PATCH',
-      body: JSON.stringify({ orderStatus: status, notes }),
+      body: JSON.stringify({ status, notes }),
     });
   }
 

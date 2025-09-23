@@ -32,7 +32,7 @@ export const UsersPage = () => {
     try {
       setLoading(true);
       const response = await api.getUsers({ limit: 50 });
-      setUsers(response.users || []);
+      setUsers(response.data || []);
     } catch (error) {
       setError(error.message);
     } finally {
@@ -49,43 +49,20 @@ export const UsersPage = () => {
     }
   };
 
-  const [showRoleModal, setShowRoleModal] = useState(false);
-  const [selectedUserForRole, setSelectedUserForRole] = useState(null);
-  const [editingRole, setEditingRole] = useState('');
-
   const handleSaveUser = async () => {
     try {
       if (selectedUser) {
-        // This is now only for role updates, we'll use a separate modal
-        await api.updateUserRole(selectedUser.id || selectedUser._id, editingRole);
+        await api.updateUser(selectedUser.id || selectedUser._id, formData);
       } else {
         await api.createUser(formData);
       }
       await loadUsers();
       setShowUserForm(false);
-      setShowRoleModal(false);
       resetForm();
     } catch (error) {
       setError('Failed to save user: ' + error.message);
     }
   };
-
-  const openRoleModal = (user) => {
-    setSelectedUserForRole(user);
-    setEditingRole(user.role || 'customer');
-    setShowRoleModal(true);
-  };
-
-  const handleUpdateRole = async () => {
-    if (!selectedUserForRole) return;
-    try {
-      await api.updateUserRole(selectedUserForRole.id || selectedUserForRole._id, editingRole);
-      await loadUsers();
-      setShowRoleModal(false);
-    } catch (err) {
-      setError('Failed to update role: ' + (err.data?.message || err.message));
-    }
-  }
 
   const handleDeleteUser = async (userId) => {
     if (!confirm('Are you sure you want to delete this user?')) return;
@@ -189,17 +166,9 @@ export const UsersPage = () => {
                   </div>
                 </TableCell>
                 <TableCell>
-                  <div className="flex flex-wrap gap-1">
-                    {user.roles && user.roles.length > 0 ? (
-                      user.roles.map(role => (
-                        <Badge key={role._id || role.name} variant="info">
-                          {role.name?.replace('_', ' ').toUpperCase()}
-                        </Badge>
-                      ))
-                    ) : (
-                      <Badge variant="secondary">NO ROLE</Badge>
-                    )}
-                  </div>
+                  <Badge variant="info">
+                    {user.role?.replace('_', ' ').toUpperCase()}
+                  </Badge>
                 </TableCell>
                 <TableCell>
                   {user.branch || 'All Branches'}
@@ -217,8 +186,7 @@ export const UsersPage = () => {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => openRoleModal(user)}
-                      title="Manage Role"
+                      onClick={() => openUserForm(user)}
                     >
                       <Edit className="h-4 w-4" />
                     </Button>
@@ -276,22 +244,12 @@ export const UsersPage = () => {
               value={formData.password}
               onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
             />
-            <div>
-              <Input
-                label="Phone"
-                type="tel"
-                required
-                value={formData.phone}
-                onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                pattern="^\+?[1-9]\d{1,14}$"
-                title="Phone number must be in international E.164 format (e.g., +263771234567)"
-              />
-              {!selectedUser && (
-                <p className="text-xs text-gray-500 mt-1">
-                  Required. Must be in international format.
-                </p>
-              )}
-            </div>
+            <Input
+              label="Phone"
+              type="tel"
+              value={formData.phone}
+              onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -339,31 +297,6 @@ export const UsersPage = () => {
             <Button onClick={handleSaveUser}>
               {selectedUser ? 'Update User' : 'Create User'}
             </Button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Update Role Modal */}
-      <Modal
-        isOpen={showRoleModal}
-        onClose={() => setShowRoleModal(false)}
-        title={`Update Role for ${selectedUserForRole?.name}`}
-      >
-        <div className="space-y-4">
-          <p>Select a new primary role for the user. This will replace all current roles.</p>
-          <Select
-            label="Role"
-            required
-            value={editingRole}
-            onChange={(e) => setEditingRole(e.target.value)}
-          >
-            {roleOptions.map(option => (
-              <option key={option.value} value={option.value}>{option.label}</option>
-            ))}
-          </Select>
-          <div className="flex justify-end space-x-3 pt-4">
-            <Button variant="outline" onClick={() => setShowRoleModal(false)}>Cancel</Button>
-            <Button onClick={handleUpdateRole}>Update Role</Button>
           </div>
         </div>
       </Modal>

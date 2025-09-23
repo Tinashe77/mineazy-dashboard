@@ -11,6 +11,7 @@ import { UsersPage } from './pages/UsersPage';
 import { BranchesPage } from './pages/BranchesPage';
 import { PaymentsPage } from './pages/PaymentsPage';
 import { ReportsPage } from './pages/ReportsPage';
+import { ReportDetailsPage } from './pages/ReportDetailsPage';
 import { InquiriesPage } from './pages/InquiriesPage';
 import { AuditPage } from './pages/AuditPage';
 import { SettingsPage } from './pages/SettingsPage';
@@ -201,14 +202,24 @@ const AppRoutes = () => {
         />
         
         {/* Reports */}
-        <Route 
-          path="reports" 
-          element={
-            <ProtectedRoute requiredRoles={['admin', 'shop_manager', 'super_admin']}>
-              <ReportsPage />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="reports">
+          <Route
+            index
+            element={
+              <ProtectedRoute requiredRoles={['admin', 'shop_manager', 'super_admin']}>
+                <ReportsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path=":id"
+            element={
+              <ProtectedRoute requiredRoles={['admin', 'shop_manager', 'super_admin']}>
+                <ReportDetailsPage />
+              </ProtectedRoute>
+            }
+          />
+        </Route>
         
         {/* Inquiries */}
         <Route 
