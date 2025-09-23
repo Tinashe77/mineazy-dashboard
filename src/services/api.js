@@ -663,6 +663,64 @@ async getTransactions(params = {}) {
     const endpoint = `/transactions/analytics/by-method${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
     return this.request(endpoint);
   }
+  // Order-specific endpoints that might be missing
+async cancelOrder(orderId, reason) {
+  if (!orderId || !reason) {
+    throw new APIError('Order ID and cancellation reason are required', 400, null);
+  }
+  
+  return this.request(`/orders/${orderId}/cancel`, {
+    method: 'POST',
+    body: JSON.stringify({ reason })
+  });
+}
+
+async addOrderTracking(orderId, trackingData) {
+  if (!orderId || !trackingData) {
+    throw new APIError('Order ID and tracking data are required', 400, null);
+  }
+  
+  return this.request(`/orders/${orderId}/tracking`, {
+    method: 'POST',
+    body: JSON.stringify(trackingData)
+  });
+}
+
+async getOrderTracking(orderId) {
+  if (!orderId) {
+    throw new APIError('Order ID is required', 400, null);
+  }
+  
+  return this.request(`/orders/${orderId}/tracking`);
+}
+
+async getOrderStatistics(params = {}) {
+  const queryString = new URLSearchParams(params).toString();
+  const endpoint = queryString ? `/orders/stats?${queryString}` : '/orders/stats';
+  
+  return this.request(endpoint);
+}
+
+async getOrderAnalytics(params = {}) {
+  const queryString = new URLSearchParams(params).toString();
+  const endpoint = queryString ? `/orders/analytics/overview?${queryString}` : '/orders/analytics/overview';
+  
+  return this.request(endpoint);
+}
+
+// Customer search (if missing)
+async searchCustomers(query, limit = 10) {
+  const params = { search: query, role: 'customer', limit };
+  const queryString = new URLSearchParams(params).toString();
+  
+  return this.request(`/admin/users?${queryString}`);
+}
+
+// Product search for orders (if missing)
+async searchProducts(query, limit = 10) {
+  const params = { search: query, isActive: true, limit };
+  return this.getProducts(params);
+}
 
 
 }
