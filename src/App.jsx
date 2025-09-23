@@ -15,6 +15,10 @@ import { ReportDetailsPage } from './pages/ReportDetailsPage';
 import { InquiriesPage } from './pages/InquiriesPage';
 import { AuditPage } from './pages/AuditPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { BlogPage } from './pages/BlogPage';
+import { BlogPostForm } from './pages/BlogPostForm';
+import { BlogCategoriesPage } from './pages/BlogCategoriesPage';
+import { BlogPostPage } from './pages/BlogPostPage';
 import { LoadingSpinner } from './components/ui';
 
 // Error Boundary Component
@@ -250,6 +254,15 @@ const AppRoutes = () => {
             </ProtectedRoute>
           }
         />
+
+        {/* Blog */}
+        <Route path="blog">
+          <Route index element={<ProtectedRoute requiredRoles={['admin', 'shop_manager', 'super_admin']}><BlogPage /></ProtectedRoute>} />
+          <Route path="new" element={<ProtectedRoute requiredRoles={['admin', 'shop_manager', 'super_admin']}><BlogPostForm /></ProtectedRoute>} />
+          <Route path="edit/:id" element={<ProtectedRoute requiredRoles={['admin', 'shop_manager', 'super_admin']}><BlogPostForm /></ProtectedRoute>} />
+          <Route path="categories" element={<ProtectedRoute requiredRoles={['admin', 'shop_manager', 'super_admin']}><BlogCategoriesPage /></ProtectedRoute>} />
+          <Route path="slug/:slug" element={<BlogPostPage />} />
+        </Route>
       </Route>
 
       {/* Catch all route */}

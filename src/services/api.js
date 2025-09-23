@@ -70,8 +70,13 @@ class MineazyAPI {
     }
 
     // Only set Content-Type for JSON requests, not FormData
-    if (!(options.body instanceof FormData) && !config.headers['Content-Type']) {
+    if (options.body instanceof FormData) {
+      // Let the browser set the Content-Type header for FormData
+      delete config.headers['Content-Type'];
+    } else if (options.body) {
+      // For other requests, set Content-Type and stringify the body
       config.headers['Content-Type'] = 'application/json';
+      config.body = JSON.stringify(options.body);
     }
 
     // Debug: Log request details
@@ -544,6 +549,105 @@ async updateProduct(id, data) {
 
   async unscheduleReport(id) {
     return this.request(`/reports/${id}/schedule`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Blog endpoints
+  async getBlogs(params = {}) {
+    const queryString = new URLSearchParams(params).toString();
+    return this.request(`/blogs?${queryString}`);
+  }
+
+  async getPublishedBlogs(params = {}) {
+    const queryString = new URLSearchParams(params).toString();
+    return this.request(`/blogs/published?${queryString}`);
+  }
+
+  async getPopularBlogs(params = {}) {
+    const queryString = new URLSearchParams(params).toString();
+    return this.request(`/blogs/popular?${queryString}`);
+  }
+
+  async searchBlogs(params = {}) {
+    const queryString = new URLSearchParams(params).toString();
+    return this.request(`/blogs/search?${queryString}`);
+  }
+
+  async getBlogById(id) {
+    return this.request(`/blogs/${id}`);
+  }
+
+  async getBlogBySlug(slug) {
+    return this.request(`/blogs/slug/${slug}`);
+  }
+
+  async getRelatedBlogs(id, limit = 5) {
+    return this.request(`/blogs/${id}/related?limit=${limit}`);
+  }
+
+  async createBlog(formData) {
+    return this.request('/blogs', {
+      method: 'POST',
+      body: formData, // FormData for image uploads
+    });
+  }
+
+  async updateBlog(id, formData) {
+    return this.request(`/blogs/${id}`, {
+      method: 'PUT',
+      body: formData, // FormData for image uploads
+    });
+  }
+
+  async deleteBlog(id) {
+    return this.request(`/blogs/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async publishBlog(id) {
+    return this.request(`/blogs/${id}/publish`, {
+      method: 'PATCH',
+    });
+  }
+
+  async archiveBlog(id) {
+    return this.request(`/blogs/${id}/archive`, {
+      method: 'PATCH',
+    });
+  }
+
+  async getBlogAnalytics(id) {
+    return this.request(`/blogs/${id}/analytics`);
+  }
+
+  // Blog Category endpoints
+  async getBlogCategories() {
+    return this.request('/blogs/categories');
+  }
+
+  async getBlogsByCategory(categoryId, params = {}) {
+    const queryString = new URLSearchParams(params).toString();
+    return this.request(`/blogs/category/${categoryId}?${queryString}`);
+  }
+
+  async createBlogCategory(data) {
+    return this.request('/blogs/categories', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateBlogCategory(id, data) {
+    return this.request(`/blogs/categories/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteBlogCategory(id) {
+    return this.request(`/blogs/categories/${id}`, {
       method: 'DELETE',
     });
   }

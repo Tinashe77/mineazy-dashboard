@@ -16,6 +16,8 @@ import {
   Shield,
   Settings,
   HelpCircle,
+  Rss,
+  LayoutGrid,
 } from 'lucide-react';
 
 const navigation = [
@@ -26,6 +28,8 @@ const navigation = [
   { name: 'Branches', href: '/branches', icon: Building2, roles: ['admin', 'super_admin'] },
   { name: 'Payments', href: '/payments', icon: CreditCard, roles: ['admin', 'shop_manager', 'super_admin'] },
   { name: 'Reports', href: '/reports', icon: BarChart3, roles: ['admin', 'shop_manager', 'super_admin'] },
+  { name: 'Blog', href: '/blog', icon: Rss, roles: ['admin', 'shop_manager', 'super_admin'] },
+  { name: 'Blog Categories', href: '/blog/categories', icon: LayoutGrid, roles: ['admin', 'shop_manager', 'super_admin'] },
   { name: 'Inquiries', href: '/inquiries', icon: MessageSquare, roles: ['admin', 'shop_manager', 'super_admin'] },
   { name: 'Audit Logs', href: '/audit', icon: Shield, roles: ['admin', 'super_admin'] },
   { name: 'Settings', href: '/settings', icon: Settings, roles: ['admin', 'shop_manager', 'super_admin'] },
