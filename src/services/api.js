@@ -389,7 +389,7 @@ async updateProduct(id, data) {
     }
     return this.request(`/orders/${id}/status`, {
       method: 'PATCH',
-      body: JSON.stringify({ status, notes }),
+      body: JSON.stringify({ orderStatus: status, notes }),
     });
   }
 
