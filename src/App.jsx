@@ -8,7 +8,6 @@ import { DashboardPage } from './pages/DashboardPage';
 import { ProductsPage } from './pages/ProductsPage';
 import { OrdersPage } from './pages/OrdersPage';
 import { UsersPage } from './pages/UsersPage';
-import { ShopManagersPage } from './pages/ShopManagersPage';
 import { BranchesPage } from './pages/BranchesPage';
 import { PaymentsPage } from './pages/PaymentsPage';
 import { ReportsPage } from './pages/ReportsPage';
@@ -181,16 +180,6 @@ const AppRoutes = () => {
           }
         />
         
-        {/* Shop Managers */}
-        <Route
-          path="shop-managers"
-          element={
-            <ProtectedRoute requiredRoles={['admin', 'super_admin']}>
-              <ShopManagersPage />
-            </ProtectedRoute>
-          }
-        />
-
         {/* Branches */}
         <Route 
           path="branches" 

@@ -28,19 +28,13 @@ import {
   Phone, 
   Mail,
   DollarSign,
-  Users,
-  UserCheck,
-  UserX
+  Users
 } from 'lucide-react';
 import api, { APIError } from '../services/api';
 import { Package } from 'lucide-react';
 
 export const BranchesPage = () => {
   const [branches, setBranches] = useState([]);
-  const [showAssignModal, setShowAssignModal] = useState(false);
-  const [selectedBranchForManager, setSelectedBranchForManager] = useState(null);
-  const [availableManagers, setAvailableManagers] = useState([]);
-  const [selectedManagerId, setSelectedManagerId] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [showBranchForm, setShowBranchForm] = useState(false);
@@ -254,45 +248,6 @@ export const BranchesPage = () => {
     });
   };
 
-  const openAssignManagerModal = async (branch) => {
-    setSelectedBranchForManager(branch);
-    try {
-      setLoading(true);
-      const res = await api.getShopManagers();
-      setAvailableManagers(res.managers || []);
-      setShowAssignModal(true);
-    } catch (err) {
-      setError(err.message || 'Failed to load managers.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleAssignManager = async () => {
-    if (!selectedBranchForManager || !selectedManagerId) {
-      setError('Please select a manager.');
-      return;
-    }
-    try {
-      await api.assignBranchManager(selectedBranchForManager._id, selectedManagerId);
-      setShowAssignModal(false);
-      setSelectedManagerId('');
-      loadBranches();
-    } catch (err) {
-      setError(err.message || 'Failed to assign manager.');
-    }
-  };
-
-  const handleRemoveManager = async (branchId) => {
-    if (!window.confirm('Are you sure you want to remove the manager from this branch?')) return;
-    try {
-      await api.removeBranchManager(branchId);
-      loadBranches();
-    } catch (err) {
-      setError(err.message || 'Failed to remove manager.');
-    }
-  };
-
   const zimbabweProvinces = [
     'Harare', 'Bulawayo', 'Manicaland', 'Mashonaland Central',
     'Mashonaland East', 'Mashonaland West', 'Masvingo',
@@ -374,8 +329,8 @@ export const BranchesPage = () => {
             <TableRow>
               <TableHead>Branch</TableHead>
               <TableHead>Location</TableHead>
-              <TableHead>Manager</TableHead>
               <TableHead>Contact</TableHead>
+              <TableHead>Currencies</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
@@ -417,16 +372,6 @@ export const BranchesPage = () => {
                   </div>
                 </TableCell>
                 <TableCell>
-                  {branch.manager ? (
-                    <div className="text-sm">
-                      <div className="font-medium text-gray-900">{branch.manager.name}</div>
-                      <div className="text-gray-500">{branch.manager.email}</div>
-                    </div>
-                  ) : (
-                    <Badge variant="secondary">Unassigned</Badge>
-                  )}
-                </TableCell>
-                <TableCell>
                   <div className="text-sm text-gray-900">
                     <div className="flex items-center">
                       <Phone className="h-3 w-3 mr-1" />
@@ -441,19 +386,36 @@ export const BranchesPage = () => {
                   </div>
                 </TableCell>
                 <TableCell>
+                  <div className="flex space-x-2">
+                    <Badge variant="default">
+                      USD (1.0)
+                    </Badge>
+                    <Badge variant="info">
+                      ZWG ({branch.currencies?.ZWG?.rate || 50})
+                    </Badge>
+                  </div>
+                </TableCell>
+                <TableCell>
                   <Badge variant={getStatusVariant(branch.status)}>
                     {branch.status || 'active'}
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  <div className="flex items-center space-x-1">
-                    <Button variant="ghost" size="sm" onClick={() => openBranchForm(branch)} title="Edit Branch"><Edit className="h-4 w-4" /></Button>
-                    {branch.manager ? (
-                      <Button variant="ghost" size="sm" onClick={() => handleRemoveManager(branch._id)} title="Remove Manager"><UserX className="h-4 w-4 text-red-500" /></Button>
-                    ) : (
-                      <Button variant="ghost" size="sm" onClick={() => openAssignManagerModal(branch)} title="Assign Manager"><UserCheck className="h-4 w-4 text-green-600" /></Button>
-                    )}
-                    <Button variant="ghost" size="sm" onClick={() => handleDeleteBranch(branch._id || branch.id)} title="Delete Branch"><Trash2 className="h-4 w-4 text-red-500" /></Button>
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => openBranchForm(branch)}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDeleteBranch(branch._id || branch.id)}
+                    >
+                      <Trash2 className="h-4 w-4 text-red-500" />
+                    </Button>
                   </div>
                 </TableCell>
               </TableRow>
@@ -461,32 +423,6 @@ export const BranchesPage = () => {
           </TableBody>
         </Table>
       </div>
-
-      {/* Assign Manager Modal */}
-      <Modal
-        isOpen={showAssignModal}
-        onClose={() => setShowAssignModal(false)}
-        title={`Assign Manager to ${selectedBranchForManager?.name}`}
-      >
-        <div className="space-y-4">
-          <Select
-            label="Select a Shop Manager"
-            value={selectedManagerId}
-            onChange={(e) => setSelectedManagerId(e.target.value)}
-          >
-            <option value="">-- Select a Manager --</option>
-            {availableManagers.map(manager => (
-              <option key={manager._id} value={manager._id}>
-                {manager.name} ({manager.email})
-              </option>
-            ))}
-          </Select>
-          <div className="flex justify-end space-x-3 pt-4">
-            <Button variant="outline" onClick={() => setShowAssignModal(false)}>Cancel</Button>
-            <Button onClick={handleAssignManager}>Assign Manager</Button>
-          </div>
-        </div>
-      </Modal>
 
       {/* Branch Form Modal */}
       <Modal
