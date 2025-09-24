@@ -64,36 +64,36 @@ export const Sidebar = ({ isOpen, onClose }) => {
 
       {/* Sidebar */}
       <div className={cn(
-        'fixed inset-y-0 left-0 z-50 w-64 bg-gradient-to-b from-primary-700 to-primary-800 transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0',
+        'fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-neutral-200 transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0',
         isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
       )}>
         <div className="flex flex-col h-full">
           {/* Logo */}
-          <div className="flex items-center justify-center h-16 px-4 bg-primary-800">
-            <h1 className="text-xl font-bold text-white">Mineazy Portal</h1>
+          <div className="flex items-center justify-center h-16 px-4">
+            <h1 className="text-xl font-bold text-primary-700">Mineazy</h1>
           </div>
 
           {/* Navigation */}
           <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
             {filteredNavigation.map((item) => {
               const isActive = location.pathname === item.href || 
-                               location.pathname.startsWith(item.href + '/');
+                               (item.href !== '/dashboard' && location.pathname.startsWith(item.href));
               
               return (
                 <button
                   key={item.name}
                   onClick={() => handleNavigation(item.href)}
                   className={cn(
-                    'group flex items-center w-full px-2 py-2 text-sm font-medium rounded-md transition-colors',
+                    'group flex items-center w-full px-3 py-2 text-sm font-medium rounded-md transition-colors',
                     isActive
-                      ? 'bg-primary-900 text-white'
-                      : 'text-primary-100 hover:bg-primary-600 hover:text-white'
+                      ? 'bg-primary-700 text-white'
+                      : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900'
                   )}
                 >
                   <item.icon 
                     className={cn(
                       'mr-3 flex-shrink-0 h-5 w-5',
-                      isActive ? 'text-white' : 'text-primary-300 group-hover:text-white'
+                      isActive ? 'text-white' : 'text-neutral-400 group-hover:text-neutral-500'
                     )}
                   />
                   {item.name}
@@ -101,24 +101,6 @@ export const Sidebar = ({ isOpen, onClose }) => {
               );
             })}
           </nav>
-
-          {/* Help section */}
-          <div className="flex-shrink-0 px-4 py-4">
-            <div className="bg-primary-900 bg-opacity-50 rounded-lg p-4">
-              <div className="flex items-center">
-                <HelpCircle className="h-5 w-5 text-primary-300 mr-2" />
-                <div>
-                  <h3 className="text-sm font-medium text-white">Need Help?</h3>
-                  <p className="text-xs text-primary-200 mt-1">
-                    Contact support for assistance with mining equipment management.
-                  </p>
-                </div>
-              </div>
-              <button className="w-full mt-3 bg-accent-500 text-primary-700 hover:bg-accent-600 text-xs font-medium py-2 px-3 rounded-md transition-colors">
-                Contact Support
-              </button>
-            </div>
-          </div>
         </div>
       </div>
     </>

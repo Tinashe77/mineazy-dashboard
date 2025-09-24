@@ -13,11 +13,11 @@ export const Button = React.forwardRef(({
 }, ref) => {
   const variants = {
     primary: 'bg-primary-700 text-white hover:bg-primary-800 focus:ring-primary-500',
-    secondary: 'bg-gray-200 text-gray-700 hover:bg-gray-300 focus:ring-gray-500',
-    accent: 'bg-accent-500 text-primary-700 hover:bg-accent-600 focus:ring-accent-500',
+    secondary: 'bg-neutral-200 text-neutral-700 hover:bg-neutral-300 focus:ring-neutral-500',
+    accent: 'bg-accent-500 text-neutral-800 hover:bg-accent-600 focus:ring-accent-500',
     danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500',
-    outline: 'border border-gray-300 text-gray-700 hover:bg-gray-50 focus:ring-primary-500',
-    ghost: 'text-gray-700 hover:bg-gray-100 focus:ring-gray-500',
+    outline: 'border border-neutral-300 text-neutral-700 hover:bg-neutral-50 focus:ring-primary-500',
+    ghost: 'text-neutral-700 hover:bg-neutral-100 focus:ring-neutral-500',
   };
 
   const sizes = {

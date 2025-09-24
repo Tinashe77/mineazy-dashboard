@@ -4,8 +4,6 @@ import { useAuth } from '../contexts/AuthContext';
 import { Card, CardContent, Badge, LoadingSpinner, Alert, Button } from '../components/ui';
 import { formatCurrency, formatDate } from '../utils';
 import api from '../services/api';
-import { AuthDebug } from '../components/AuthDebug';
-import CORSDebug from '../components/CORSDebug';
 
 import {
   Package,
@@ -109,15 +107,15 @@ export const DashboardPage = () => {
         title: 'Total Products',
         value: stats.totalProducts,
         icon: Package,
-        color: 'text-blue-600',
-        bgColor: 'bg-blue-100'
+        color: 'text-primary-600',
+        bgColor: 'bg-primary-100'
       },
       {
         title: 'Active Branches',
         value: stats.totalBranches,
         icon: Building2,
-        color: 'text-purple-600',
-        bgColor: 'bg-purple-100'
+        color: 'text-accent-600',
+        bgColor: 'bg-accent-100'
       }
     ];
 
@@ -157,7 +155,7 @@ export const DashboardPage = () => {
     return (
       <div className="flex items-center justify-center py-12">
         <LoadingSpinner size="lg" />
-        <span className="ml-3 text-gray-600">Loading dashboard...</span>
+        <span className="ml-3 text-neutral-600">Loading dashboard...</span>
       </div>
     );
   }
@@ -165,14 +163,13 @@ export const DashboardPage = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="text-2xl font-bold text-neutral-900">
             Welcome back, {user?.name || 'User'}!
           </h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Here's what's happening with your mining equipment business today.
+          <p className="mt-1 text-sm text-neutral-500">
+            Here's what's happening with your business today.
           </p>
         </div>
         <div className="mt-4 sm:mt-0">
@@ -187,8 +184,7 @@ export const DashboardPage = () => {
           </Button>
         </div>
       </div>
-<AuthDebug />
-<CORSDebug />
+
       {error && (
         <Alert variant="error" onClose={() => setDashboardData(prev => ({ ...prev, error: null }))}>
           {error}
@@ -205,8 +201,8 @@ export const DashboardPage = () => {
                   <stat.icon className={`h-6 w-6 ${stat.color}`} />
                 </div>
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">{stat.title}</p>
-                  <p className="text-2xl font-semibold text-gray-900">{stat.value}</p>
+                  <p className="text-sm font-medium text-neutral-600">{stat.title}</p>
+                  <p className="text-2xl font-semibold text-neutral-900">{stat.value}</p>
                 </div>
               </div>
             </CardContent>
@@ -219,28 +215,28 @@ export const DashboardPage = () => {
         {/* Recent Orders - Only for managers and admins */}
         {['admin', 'super_admin', 'shop_manager'].includes(userRole) && (
           <Card>
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h3 className="text-lg font-medium text-gray-900 flex items-center">
+            <div className="px-6 py-4 border-b border-neutral-200">
+              <h3 className="text-lg font-medium text-neutral-900 flex items-center">
                 <Clock className="h-5 w-5 mr-2" />
                 Recent Orders
               </h3>
             </div>
             <CardContent className="p-0">
-              <div className="divide-y divide-gray-200">
+              <div className="divide-y divide-neutral-200">
                 {recentOrders.length > 0 ? (
                   recentOrders.map((order, index) => (
                     <div key={order.id || order._id || index} className="px-6 py-4">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-sm font-medium text-gray-900">
+                          <p className="text-sm font-medium text-neutral-900">
                             Order #{(order.id || order._id || '').slice(-8).toUpperCase()}
                           </p>
-                          <p className="text-sm text-gray-500">
+                          <p className="text-sm text-neutral-500">
                             {order.customer || order.user?.name || 'Unknown Customer'}
                           </p>
                         </div>
                         <div className="text-right">
-                          <p className="text-sm font-medium text-gray-900">
+                          <p className="text-sm font-medium text-neutral-900">
                             {formatCurrency(order.total || order.totalAmount || 0)}
                           </p>
                           <Badge variant={order.status === 'completed' ? 'success' : 'warning'}>
@@ -251,8 +247,8 @@ export const DashboardPage = () => {
                     </div>
                   ))
                 ) : (
-                  <div className="px-6 py-8 text-center text-gray-500">
-                    <ShoppingCart className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                  <div className="px-6 py-8 text-center text-neutral-500">
+                    <ShoppingCart className="h-8 w-8 mx-auto mb-2 text-neutral-400" />
                     <p>No recent orders found</p>
                   </div>
                 )}
@@ -263,23 +259,23 @@ export const DashboardPage = () => {
 
         {/* Low Stock Alert */}
         <Card>
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="text-lg font-medium text-gray-900 flex items-center">
+          <div className="px-6 py-4 border-b border-neutral-200">
+            <h3 className="text-lg font-medium text-neutral-900 flex items-center">
               <AlertTriangle className="h-5 w-5 mr-2 text-red-500" />
               Low Stock Alert
             </h3>
           </div>
           <CardContent className="p-0">
-            <div className="divide-y divide-gray-200">
+            <div className="divide-y divide-neutral-200">
               {lowStockProducts.length > 0 ? (
                 lowStockProducts.map((product, index) => (
                   <div key={product.id || product._id || index} className="px-6 py-4">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm font-medium text-gray-900">
+                        <p className="text-sm font-medium text-neutral-900">
                           {product.name}
                         </p>
-                        <p className="text-sm text-gray-500">SKU: {product.sku}</p>
+                        <p className="text-sm text-neutral-500">SKU: {product.sku}</p>
                       </div>
                       <div className="text-right">
                         <p className="text-sm font-medium text-red-600">
@@ -298,11 +294,6 @@ export const DashboardPage = () => {
             </div>
           </CardContent>
         </Card>
-      </div>
-
-      {/* Debug Info - Remove this later */}
-      <div className="bg-gray-100 p-4 rounded text-xs text-gray-600">
-        <strong>Debug:</strong> User Role: {userRole}, User: {user?.name}
       </div>
     </div>
   );

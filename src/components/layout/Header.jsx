@@ -39,13 +39,13 @@ export const Header = ({ onMenuClick }) => {
   };
 
   return (
-    <header className="bg-white shadow-sm border-b border-gray-200">
+    <header className="bg-white border-b border-neutral-200">
       <div className="flex items-center justify-between h-16 px-4 sm:px-6 lg:px-8">
         {/* Left section */}
         <div className="flex items-center">
           <button
             type="button"
-            className="lg:hidden p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100"
+            className="lg:hidden p-2 rounded-md text-neutral-500 hover:text-neutral-600 hover:bg-neutral-100"
             onClick={onMenuClick}
           >
             <Menu className="h-6 w-6" />
@@ -54,11 +54,11 @@ export const Header = ({ onMenuClick }) => {
           {/* Search bar */}
           <div className="hidden sm:block ml-4">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-neutral-400" />
               <input
                 type="text"
                 placeholder="Search..."
-                className="pl-10 pr-4 py-2 border border-gray-300 rounded-md w-80 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                className="pl-10 pr-4 py-2 bg-neutral-100 rounded-md w-80 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 border-transparent"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -69,27 +69,26 @@ export const Header = ({ onMenuClick }) => {
         {/* Right section */}
         <div className="flex items-center space-x-4">
           {/* Notifications */}
-          <button className="p-2 text-gray-400 hover:text-gray-500 hover:bg-gray-100 rounded-md">
-            <Bell className="h-5 w-5" />
+          <button className="p-2 text-neutral-500 hover:text-neutral-600 hover:bg-neutral-100 rounded-full">
+            <Bell className="h-6 w-6" />
           </button>
 
           {/* User menu */}
           <div className="relative" ref={userMenuRef}>
             <button
-              className="flex items-center space-x-3 p-2 rounded-md hover:bg-gray-100"
+              className="flex items-center space-x-3 p-2 rounded-md"
               onClick={() => setShowUserMenu(!showUserMenu)}
             >
               <div className="flex items-center space-x-3">
                 <div className="text-right hidden sm:block">
-                  <p className="text-sm font-medium text-gray-900">{user?.name}</p>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-sm font-medium text-neutral-900">{user?.name}</p>
+                  <p className="text-xs text-neutral-500">
                     {user?.role?.replace('_', ' ').toUpperCase()}
                   </p>
                 </div>
-                <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center">
-                  <User className="h-4 w-4 text-primary-600" />
+                <div className="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center">
+                  <User className="h-5 w-5 text-primary-600" />
                 </div>
-                <ChevronDown className="h-4 w-4 text-gray-400" />
               </div>
             </button>
 
@@ -97,19 +96,19 @@ export const Header = ({ onMenuClick }) => {
             {showUserMenu && (
               <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5 z-50">
                 <div className="py-1">
-                  <div className="px-4 py-2 border-b border-gray-200">
-                    <p className="text-sm font-medium text-gray-900">{user?.name}</p>
-                    <p className="text-xs text-gray-500">{user?.email}</p>
+                  <div className="px-4 py-2 border-b border-neutral-200">
+                    <p className="text-sm font-medium text-neutral-900">{user?.name}</p>
+                    <p className="text-xs text-neutral-500">{user?.email}</p>
                   </div>
                   
-                  <button className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                  <button className="flex items-center w-full px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-100">
                     <SettingsIcon className="h-4 w-4 mr-2" />
                     Profile Settings
                   </button>
                   
                   <button 
                     onClick={handleLogout}
-                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    className="flex items-center w-full px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-100"
                   >
                     <LogOut className="h-4 w-4 mr-2" />
                     Sign out
